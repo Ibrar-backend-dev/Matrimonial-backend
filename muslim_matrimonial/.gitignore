@@ -1,0 +1,13 @@
+.env
+venv/
+.python/
+.python-embed/
+.python-*-installer.exe
+.python-*-embed-amd64.zip
+__pycache__/
+*.py[cod]
+*.sqlite3
+.pytest_cache/
+staticfiles/
+media/*
+!media/.gitkeep
