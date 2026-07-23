@@ -7,7 +7,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "phone", "email", "role", "status", "otp_verified", "created_at")
+        fields = ("id", "email", "role", "status", "otp_verified", "created_at")
         read_only_fields = fields
 
 
@@ -16,28 +16,28 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("phone", "email", "password")
+        fields = ("email", "password")
 
     def create(self, validated_data):
         return User.objects.create_user(is_active=False, **validated_data)
 
 
 class OTPSerializer(serializers.Serializer):
-    phone = serializers.CharField(max_length=20)
+    email = serializers.EmailField()
     otp = serializers.CharField(min_length=6, max_length=6)
 
 
 class LoginSerializer(serializers.Serializer):
-    phone = serializers.CharField(max_length=20)
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
         try:
-            user = User.objects.get(phone=attrs["phone"])
+            user = User.objects.get(email=attrs["email"])
         except User.DoesNotExist:
-            raise serializers.ValidationError("Invalid phone number or password.")
+            raise serializers.ValidationError("Invalid email or password.")
         if not user.check_password(attrs["password"]):
-            raise serializers.ValidationError("Invalid phone number or password.")
+            raise serializers.ValidationError("Invalid email or password.")
         if not user.otp_verified or not user.is_active or user.status != "active":
             raise serializers.ValidationError("This account is not active and verified.")
         attrs["user"] = user
@@ -45,7 +45,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
-    phone = serializers.CharField(max_length=20)
+    email = serializers.EmailField()
     otp = serializers.CharField(min_length=6, max_length=6, required=False)
     new_password = serializers.CharField(write_only=True, required=False)
 

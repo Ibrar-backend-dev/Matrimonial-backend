@@ -19,7 +19,7 @@ class ProfileCreateView(generics.CreateAPIView):
 
 
 class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Profile.objects.select_related("user").prefetch_related("photos")
+    queryset = Profile.objects.filter(is_deleted=False).select_related("user").prefetch_related("photos")
     serializer_class = ProfileSerializer
     permission_classes = [IsAdminOrOwner]
 
@@ -34,18 +34,21 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
                 raise NotFound("Profile not found.")
         return profile
 
+    def perform_destroy(self, instance):
+        instance.soft_delete()
+
 
 class PhotoUploadView(generics.CreateAPIView):
     serializer_class = PhotoSerializer
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        profile = get_object_or_404(Profile, user=self.request.user)
+        profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
         context["profile"] = profile
         return context
 
     def perform_create(self, serializer):
-        profile = get_object_or_404(Profile, user=self.request.user)
+        profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
         serializer.save(profile=profile)
 
 
@@ -53,7 +56,7 @@ class PhotoListView(generics.ListAPIView):
     serializer_class = PhotoSerializer
 
     def get_queryset(self):
-        profile = get_object_or_404(Profile, user=self.request.user)
+        profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
         return profile.photos.all()[:6]
 
 

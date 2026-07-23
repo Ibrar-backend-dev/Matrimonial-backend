@@ -11,7 +11,12 @@ from .services import eligible_profiles
 
 class ReciprocalProfileVisibilityTests(TestCase):
     def make_user(self, phone, name, gender, interested_in, city="Lahore"):
-        user = User.objects.create_user(phone=phone, password="StrongPass123!", otp_verified=True)
+        user = User.objects.create_user(
+            email=f"{phone.lstrip('+')}@example.com",
+            password="StrongPass123!",
+            phone=phone,
+            otp_verified=True,
+        )
         profile = Profile.objects.create(
             user=user,
             name=name,

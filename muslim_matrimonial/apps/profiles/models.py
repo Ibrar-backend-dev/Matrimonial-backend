@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from core.validators import validate_adult_dob
 
@@ -56,12 +57,22 @@ class Profile(models.Model):
     bio = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         db_table = "profiles"
 
     def __str__(self):
         return self.name
+
+    def soft_delete(self):
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.save(update_fields=["is_deleted", "deleted_at"])
+
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     @property
     def photo_count(self):
@@ -85,7 +96,7 @@ class Profile(models.Model):
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="photos")
-    image = models.ImageField(upload_to="profile_photos/")
+    image = models.ImageField(upload_to="profile_photos/", blank=True, null=True)
     is_primary = models.BooleanField(default=False)
     privacy_level = models.CharField(max_length=20, choices=Profile.PHOTO_PRIVACY_CHOICES, blank=True, null=True)
 

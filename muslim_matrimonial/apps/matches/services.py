@@ -45,6 +45,7 @@ def eligible_profiles(user, filters=None):
         Profile.objects.select_related("user", "user__preference")
         .prefetch_related("photos")
         .filter(
+            is_deleted=False,
             user__is_active=True,
             user__status="active",
             is_muslim_confirmed=True,

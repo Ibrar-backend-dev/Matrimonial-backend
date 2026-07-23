@@ -8,8 +8,8 @@ from .models import Message
 
 class MessageRulesTests(TestCase):
     def setUp(self):
-        self.sender = User.objects.create_user(phone="+921111111111")
-        self.receiver = User.objects.create_user(phone="+922222222222")
+        self.sender = User.objects.create_user(email="sender@example.com", phone="+921111111111")
+        self.receiver = User.objects.create_user(email="receiver@example.com", phone="+922222222222")
 
     def test_pending_match_cannot_receive_messages(self):
         match = MatchRequest.objects.create(sender=self.sender, receiver=self.receiver)
