@@ -2,9 +2,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
-from .models import Preference, Profile
+from core.permissions import IsAdminOrOwner
+
+from .models import Photo, Preference, Profile
 from .serializers import PhotoSerializer, PreferenceSerializer, ProfilePrivacySerializer, ProfileSerializer
 
 
@@ -17,15 +18,15 @@ class ProfileCreateView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class ProfileDetailView(generics.RetrieveUpdateAPIView):
+class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Profile.objects.select_related("user").prefetch_related("photos")
     serializer_class = ProfileSerializer
+    permission_classes = [IsAdminOrOwner]
 
     def get_object(self):
         profile = super().get_object()
-        if self.request.method in {"PUT", "PATCH"}:
-            if profile.user != self.request.user:
-                raise PermissionDenied("Only the profile owner can update this profile.")
+        if self.request.method in {"PUT", "PATCH", "DELETE"}:
+            self.check_object_permissions(self.request, profile)
         elif profile.user != self.request.user and not self.request.user.is_staff:
             from apps.matches.services import is_profile_visible_to
 
@@ -37,9 +38,29 @@ class ProfileDetailView(generics.RetrieveUpdateAPIView):
 class PhotoUploadView(generics.CreateAPIView):
     serializer_class = PhotoSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        profile = get_object_or_404(Profile, user=self.request.user)
+        context["profile"] = profile
+        return context
+
     def perform_create(self, serializer):
         profile = get_object_or_404(Profile, user=self.request.user)
         serializer.save(profile=profile)
+
+
+class PhotoListView(generics.ListAPIView):
+    serializer_class = PhotoSerializer
+
+    def get_queryset(self):
+        profile = get_object_or_404(Profile, user=self.request.user)
+        return profile.photos.all()[:6]
+
+
+class PhotoDeleteView(generics.DestroyAPIView):
+    serializer_class = PhotoSerializer
+    permission_classes = [IsAdminOrOwner]
+    queryset = Photo.objects.all()
 
 
 class PrivacySettingsView(generics.GenericAPIView):

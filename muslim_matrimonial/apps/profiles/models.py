@@ -63,11 +63,29 @@ class Profile(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def photo_count(self):
+        return self.photos.count()
+
+    @property
+    def is_complete(self):
+        required_fields = [
+            self.name,
+            self.gender,
+            self.dob,
+            self.city,
+            self.country,
+            self.sect_maslak,
+            self.education,
+            self.marital_status,
+        ]
+        return all(required_fields) and self.photo_count >= 1
+
 
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="photos")
-    url = models.URLField()
+    image = models.ImageField(upload_to="profile_photos/")
     is_primary = models.BooleanField(default=False)
     privacy_level = models.CharField(max_length=20, choices=Profile.PHOTO_PRIVACY_CHOICES, blank=True, null=True)
 
@@ -78,6 +96,12 @@ class Photo(models.Model):
         super().save(*args, **kwargs)
         if self.is_primary:
             Photo.objects.filter(profile=self.profile, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+
+    def delete(self, *args, **kwargs):
+        image_name = self.image.name
+        super().delete(*args, **kwargs)
+        if image_name:
+            self.image.storage.delete(image_name)
 
 
 class Preference(models.Model):
