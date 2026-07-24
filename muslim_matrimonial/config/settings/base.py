@@ -115,7 +115,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"otp": "5/hour", "otp_email": "5/hour"},
+    "DEFAULT_THROTTLE_RATES": {"otp": "4/hour", "otp_email": "4/hour"},
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
