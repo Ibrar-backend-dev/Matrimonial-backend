@@ -1,4 +1,5 @@
 from django.contrib.auth.password_validation import validate_password
+from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from .models import User
@@ -24,7 +25,9 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class OTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    otp = serializers.CharField(min_length=6, max_length=6)
+    otp = serializers.CharField(
+        min_length=6, max_length=6, validators=[RegexValidator(r"^\d{6}$", "OTP must be a 6-digit code.")]
+    )
 
 
 class LoginSerializer(serializers.Serializer):
@@ -57,3 +60,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
         if password_supplied:
             validate_password(attrs["new_password"])
         return attrs
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()

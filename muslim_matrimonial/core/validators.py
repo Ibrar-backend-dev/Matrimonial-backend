@@ -12,3 +12,13 @@ def validate_adult_dob(value):
 def validate_rating(value):
     if not 1 <= value <= 5:
         raise ValidationError("Rating must be between 1 and 5.")
+
+
+def validate_image_file(value):
+    header = value.read(12)
+    value.seek(0)
+    is_jpeg = header[:3] == b"\xff\xd8\xff"
+    is_png = header[:8] == b"\x89PNG\r\n\x1a\n"
+    is_webp = header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+    if not (is_jpeg or is_png or is_webp):
+        raise ValidationError("The file is not a valid JPEG, PNG, or WEBP image.")

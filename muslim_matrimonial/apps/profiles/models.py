@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from core.validators import validate_adult_dob
+from core.validators import validate_adult_dob, validate_image_file
 
 
 GENDER_CHOICES = [("male", "Male"), ("female", "Female")]
@@ -93,10 +93,24 @@ class Profile(models.Model):
         return all(required_fields) and self.photo_count >= 1
 
 
+def photo_upload_path(instance, filename):
+    header = instance.image.file.read(12)
+    instance.image.file.seek(0)
+    if header[:3] == b"\xff\xd8\xff":
+        ext = "jpg"
+    elif header[:8] == b"\x89PNG\r\n\x1a\n":
+        ext = "png"
+    elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        ext = "webp"
+    else:
+        ext = "bin"
+    return f"profile_photos/{uuid.uuid4()}.{ext}"
+
+
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="photos")
-    image = models.ImageField(upload_to="profile_photos/", blank=True, null=True)
+    image = models.FileField(upload_to=photo_upload_path, blank=True, null=True, validators=[validate_image_file])
     is_primary = models.BooleanField(default=False)
     privacy_level = models.CharField(max_length=20, choices=Profile.PHOTO_PRIVACY_CHOICES, blank=True, null=True)
 

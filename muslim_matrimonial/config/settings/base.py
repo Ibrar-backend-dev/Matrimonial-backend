@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "channels",
     "corsheaders",
@@ -114,6 +115,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
+    "DEFAULT_THROTTLE_RATES": {"otp": "5/hour", "otp_email": "5/hour"},
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
@@ -150,9 +152,21 @@ CELERY_BEAT_SCHEDULE = {
 
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "muslim-matrimonial",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     }
 }
 CORS_ALLOWED_ORIGINS = [origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+
+from decouple import config as env_config  # noqa: E402
+
+EMAIL_HOST = env_config("EMAIL_HOST", default="")
+EMAIL_PORT = env_config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS = env_config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_USE_SSL = env_config("EMAIL_USE_SSL", default=False, cast=bool)
+EMAIL_HOST_USER = env_config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env_config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = env_config("DEFAULT_FROM_EMAIL", default="no-reply@muslimmatrimonial.local")
+EMAIL_TIMEOUT = env_config("EMAIL_TIMEOUT", default=10, cast=int)

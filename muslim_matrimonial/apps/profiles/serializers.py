@@ -1,6 +1,8 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from core.utils import calculate_age
+from core.validators import validate_image_file
 
 from .models import Photo, Preference, Profile
 
@@ -11,7 +13,7 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class PhotoSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(write_only=True, required=True)
+    image = serializers.FileField(write_only=True, required=True)
     url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -30,6 +32,10 @@ class PhotoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Each photo must be 2 MB or smaller.")
         if value.content_type not in ALLOWED_IMAGE_TYPES:
             raise serializers.ValidationError("Supported image types are JPEG, PNG, and WEBP.")
+        try:
+            validate_image_file(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message)
         return value
 
     def validate(self, attrs):
