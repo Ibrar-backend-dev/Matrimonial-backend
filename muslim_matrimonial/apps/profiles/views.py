@@ -4,6 +4,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 
 from core.permissions import IsAdminOrOwner
+from core.throttles import AuthenticatedUserThrottle
 
 from .models import Photo, Preference, Profile
 from .serializers import PhotoSerializer, PreferenceSerializer, ProfilePrivacySerializer, ProfileSerializer
@@ -22,6 +23,8 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Profile.objects.filter(is_deleted=False).select_related("user").prefetch_related("photos")
     serializer_class = ProfileSerializer
     permission_classes = [IsAdminOrOwner]
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "profile"
 
     def get_object(self):
         profile = super().get_object()
@@ -40,6 +43,8 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class PhotoUploadView(generics.CreateAPIView):
     serializer_class = PhotoSerializer
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "profile"
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -64,6 +69,8 @@ class PhotoDeleteView(generics.DestroyAPIView):
     serializer_class = PhotoSerializer
     permission_classes = [IsAdminOrOwner]
     queryset = Photo.objects.all()
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "profile"
 
 
 class PrivacySettingsView(generics.GenericAPIView):

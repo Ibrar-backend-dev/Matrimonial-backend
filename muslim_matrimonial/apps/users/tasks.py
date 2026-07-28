@@ -12,7 +12,6 @@ OTP_TTL_SECONDS = 600
 PURPOSE_COPY = {
     "verify": ("Verify your email address", "Welcome to Muslim Matrimonial! Use the code below to verify your email address."),
     "password-reset": ("Reset your password", "We received a request to reset your password. Use the code below to continue."),
-    "login": ("Your login verification code", "We received a login attempt on your account. Use the code below to complete your login."),
 }
 DEFAULT_SUBJECT = "Your verification code"
 DEFAULT_INTRO = "Use the code below to continue."

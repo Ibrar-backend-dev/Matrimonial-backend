@@ -10,6 +10,7 @@ from apps.profiles.models import Profile
 from apps.profiles.serializers import ProfileSerializer
 from apps.users.models import User
 from core.pagination import StandardResultsPagination
+from core.throttles import AuthenticatedUserThrottle
 
 from .models import MatchRequest
 from .serializers import MatchFilterSerializer, MatchRequestSerializer, MatchResponseSerializer
@@ -18,6 +19,8 @@ from .services import eligible_profiles, get_daily_suggestions, is_profile_visib
 
 class SuggestionListView(generics.GenericAPIView):
     serializer_class = ProfileSerializer
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "match"
 
     def get(self, request):
         suggestions = get_daily_suggestions(request.user)
@@ -26,6 +29,8 @@ class SuggestionListView(generics.GenericAPIView):
 
 class MatchFilterView(generics.GenericAPIView):
     serializer_class = MatchFilterSerializer
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "match"
 
     def post(self, request):
         filters = MatchFilterSerializer(data=request.data, context={"request": request})
@@ -39,6 +44,8 @@ class MatchFilterView(generics.GenericAPIView):
 
 class MatchRequestCreateView(generics.GenericAPIView):
     serializer_class = MatchRequestSerializer
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "match"
 
     def post(self, request, user_id):
         receiver = get_object_or_404(User, pk=user_id, is_active=True, status="active")
@@ -59,6 +66,8 @@ class MatchRequestCreateView(generics.GenericAPIView):
 
 class MatchRespondView(generics.GenericAPIView):
     serializer_class = MatchResponseSerializer
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "match"
 
     @transaction.atomic
     def patch(self, request, request_id):

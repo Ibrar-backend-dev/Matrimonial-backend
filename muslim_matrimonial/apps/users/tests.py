@@ -16,6 +16,9 @@ TEST_CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemC
     CACHES=TEST_CACHES,
 )
 class AuthenticationFlowTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
     def _register_and_verify(self, email="user@example.com", password="StrongPass123!"):
         credentials = {"email": email, "password": password}
         register = self.client.post("/api/auth/register", credentials, format="json")
@@ -37,7 +40,7 @@ class AuthenticationFlowTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("code", mail.outbox[0].body.lower())
 
-    def test_register_verify_login_otp_and_verify(self):
+    def test_register_verify_and_login(self):
         credentials = self._register_and_verify()
 
         login = self.client.post(
@@ -46,31 +49,12 @@ class AuthenticationFlowTests(APITestCase):
             format="json",
         )
         self.assertEqual(login.status_code, 200)
-        self.assertTrue(login.data["otp_required"])
-        self.assertNotIn("access", login.data)
-
-        login_otp = cache.get(otp_cache_key(credentials["email"], "login"))
-        self.assertIsNotNone(login_otp)
-
-        verify_login = self.client.post(
-            "/api/auth/login/verify-otp",
-            {"email": credentials["email"], "otp": login_otp},
-            format="json",
-        )
-        self.assertEqual(verify_login.status_code, 200)
-        self.assertFalse(verify_login.data["otp_required"])
-        self.assertIn("access", verify_login.data)
-        self.assertIn("refresh", verify_login.data)
+        self.assertIn("access", login.data)
+        self.assertIn("refresh", login.data)
 
     def test_logout_blacklists_refresh_token(self):
         credentials = self._register_and_verify(email="logout@example.com")
-        login = self.client.post("/api/auth/login", credentials, format="json")
-        login_otp = cache.get(otp_cache_key(credentials["email"], "login"))
-        tokens = self.client.post(
-            "/api/auth/login/verify-otp",
-            {"email": credentials["email"], "otp": login_otp},
-            format="json",
-        ).data
+        tokens = self.client.post("/api/auth/login", credentials, format="json").data
 
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
         logout = self.client.post("/api/auth/logout", {"refresh": tokens["refresh"]}, format="json")

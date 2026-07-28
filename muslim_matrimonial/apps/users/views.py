@@ -11,6 +11,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from core.throttles import AnonIPThrottle, AuthenticatedUserThrottle
+
 from .models import User
 from .serializers import (
     ForgotPasswordSerializer,
@@ -37,7 +39,7 @@ class RegisterView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
     throttle_classes = [ScopedRateThrottle, OTPEmailRateThrottle]
-    throttle_scope = "otp"
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -53,6 +55,8 @@ class RegisterView(generics.GenericAPIView):
 class VerifyOTPView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = OTPSerializer
+    throttle_classes = [AnonIPThrottle, AuthenticatedUserThrottle]
+    throttle_scope = "auth_authenticated"
 
     def post(self, request):
         serializer = OTPSerializer(data=request.data)
@@ -73,37 +77,16 @@ class VerifyOTPView(generics.GenericAPIView):
 class LoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
-    throttle_classes = [ScopedRateThrottle, OTPEmailRateThrottle]
-    throttle_scope = "otp"
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
-        otp = issue_otp(user.email, "login")
-        data = {"detail": "Login OTP sent to email.", "otp_required": True}
-        if settings.DEBUG:
-            data["otp"] = otp
-        return Response(data)
-
-
-class LoginVerifyOTPView(generics.GenericAPIView):
-    permission_classes = [AllowAny]
-    serializer_class = OTPSerializer
-
-    def post(self, request):
-        serializer = OTPSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
-        expected = cache.get(otp_cache_key(email, "login"))
-        if expected is None or not secrets.compare_digest(str(expected), serializer.validated_data["otp"]):
-            return Response({"detail": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
-        user = get_object_or_404(User, email=email)
-        cache.delete(otp_cache_key(email, "login"))
         refresh = RefreshToken.for_user(user)
         return Response(
             {
-                "otp_required": False,
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
                 "user": UserSerializer(user).data,
@@ -129,7 +112,7 @@ class ForgotPasswordView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = ForgotPasswordSerializer
     throttle_classes = [ScopedRateThrottle, OTPEmailRateThrottle]
-    throttle_scope = "otp"
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)

@@ -115,7 +115,14 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"otp": "4/hour", "otp_email": "4/hour"},
+    "DEFAULT_THROTTLE_RATES": {
+        "otp_email": "4/hour",
+        "auth": "2/hour",
+        "auth_authenticated": "20/hour",
+        "profile": "20/hour",
+        "match": "50/hour",
+        "chat": "50/minute",
+    },
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
@@ -152,9 +159,8 @@ CELERY_BEAT_SCHEDULE = {
 
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL}/1",
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
     }
 }
 CORS_ALLOWED_ORIGINS = [origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
