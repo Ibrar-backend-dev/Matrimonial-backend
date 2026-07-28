@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/subscriptions/", include("apps.subscriptions.urls")),
     path("api/reviews/", include("apps.reviews.urls")),
     path("api/reports/", include("apps.reports.urls")),
+    path("api/gallery/", include("apps.gallery.urls")),
     path("api/admin/verifications/pending", PendingVerificationListView.as_view(), name="pending-verifications"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

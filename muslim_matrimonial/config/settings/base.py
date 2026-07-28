@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.subscriptions",
     "apps.reviews",
     "apps.reports",
+    "apps.gallery",
 ]
 
 MIDDLEWARE = [
