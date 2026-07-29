@@ -23,6 +23,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(is_active=False, **validated_data)
 
 
+class ResendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
 class OTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(

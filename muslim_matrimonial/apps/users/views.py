@@ -1,6 +1,5 @@
 import secrets
 
-from django.conf import settings
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
@@ -20,6 +19,7 @@ from .serializers import (
     LogoutSerializer,
     OTPSerializer,
     RegisterSerializer,
+    ResendOTPSerializer,
     UserSerializer,
 )
 from .tasks import issue_otp, otp_cache_key
@@ -45,10 +45,8 @@ class RegisterView(generics.GenericAPIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        otp = issue_otp(user.email)
+        issue_otp(user.email)
         data = {"user": UserSerializer(user).data, "detail": "OTP sent to email."}
-        if settings.DEBUG:
-            data["otp"] = otp
         return Response(data, status=status.HTTP_201_CREATED)
 
 
@@ -72,6 +70,22 @@ class VerifyOTPView(generics.GenericAPIView):
         user.save(update_fields=["otp_verified", "is_active", "status"])
         cache.delete(otp_cache_key(email, "verify"))
         return Response({"detail": "Email verified."})
+
+
+class ResendOTPView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ResendOTPSerializer
+    throttle_classes = [OTPEmailRateThrottle]
+
+    def post(self, request):
+        serializer = ResendOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        user = get_object_or_404(User, email=email)
+        if user.otp_verified:
+            return Response({"detail": "Email is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+        issue_otp(email)
+        return Response({"detail": "OTP resent to email."})
 
 
 class LoginView(generics.GenericAPIView):
@@ -120,11 +134,8 @@ class ForgotPasswordView(generics.GenericAPIView):
         email = serializer.validated_data["email"]
         user = get_object_or_404(User, email=email, status="active")
         if "otp" not in serializer.validated_data:
-            otp = issue_otp(email, "password-reset")
-            data = {"detail": "Password reset OTP sent."}
-            if settings.DEBUG:
-                data["otp"] = otp
-            return Response(data)
+            issue_otp(email, "password-reset")
+            return Response({"detail": "Password reset OTP sent."})
 
         expected = cache.get(otp_cache_key(email, "password-reset"))
         supplied = serializer.validated_data["otp"]

@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from decouple import config as env_config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -118,9 +120,9 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
         "otp_email": "4/hour",
-        "auth": "2/hour",
-        "auth_authenticated": "20/hour",
-        "profile": "20/hour",
+        "auth": "5/hour",
+        "auth_authenticated": "50/hour",
+        "profile": "50/hour",
         "match": "50/hour",
         "chat": "50/minute",
     },
@@ -150,7 +152,7 @@ CHANNEL_LAYERS = {
 }
 CELERY_BROKER_URL = f"{REDIS_URL}/0"
 CELERY_RESULT_BACKEND = f"{REDIS_URL}/0"
-CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", DEBUG)
+CELERY_TASK_ALWAYS_EAGER = env_config("CELERY_TASK_ALWAYS_EAGER", default=DEBUG, cast=bool)
 CELERY_BEAT_SCHEDULE = {
     "build-daily-match-suggestions": {
         "task": "apps.matches.tasks.build_daily_suggestions",
@@ -165,10 +167,8 @@ CACHES = {
     }
 }
 CORS_ALLOWED_ORIGINS = [origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 
-from decouple import config as env_config  # noqa: E402
-
+EMAIL_BACKEND = env_config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = env_config("EMAIL_HOST", default="")
 EMAIL_PORT = env_config("EMAIL_PORT", default=587, cast=int)
 EMAIL_USE_TLS = env_config("EMAIL_USE_TLS", default=True, cast=bool)
