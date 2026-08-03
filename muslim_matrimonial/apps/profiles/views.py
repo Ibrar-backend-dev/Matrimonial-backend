@@ -1,13 +1,17 @@
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from core.media_uploads import finalize_upload, reserve_upload_slot
 from core.permissions import IsAdminOrOwner
 from core.throttles import AuthenticatedUserThrottle
 
 from .models import Photo, Preference, Profile
-from .serializers import PhotoSerializer, PreferenceSerializer, ProfilePrivacySerializer, ProfileSerializer
+from .serializers import PhotoSerializer, PhotoUploadRequestSerializer, PreferenceSerializer, ProfilePrivacySerializer, ProfileSerializer
+from .tasks import validate_and_promote_photo
 
 
 class ProfileCreateView(generics.CreateAPIView):
@@ -41,20 +45,58 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.soft_delete()
 
 
-class PhotoUploadView(generics.CreateAPIView):
-    serializer_class = PhotoSerializer
+class PhotoUploadRequestView(APIView):
+    """Step 1: reserve a gallery slot and return a presigned S3 POST.
+
+    The client uploads the file bytes directly to S3 with the returned
+    fields, then calls PhotoFinalizeView to trigger server-side validation.
+    """
+
     throttle_classes = [AuthenticatedUserThrottle]
     throttle_scope = "profile"
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
-        context["profile"] = profile
-        return context
+    def post(self, request):
+        profile = get_object_or_404(Profile, user=request.user, is_deleted=False)
+        serializer = PhotoUploadRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-    def perform_create(self, serializer):
-        profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
-        serializer.save(profile=profile)
+        photo, post = reserve_upload_slot(
+            model=Photo,
+            owner_field="profile",
+            owner=profile,
+            user=request.user,
+            max_count=settings.MAX_PROFILE_GALLERY_PHOTOS,
+            key_prefix="profile_photos",
+            content_type=data["content_type"],
+        )
+        if data.get("is_primary") or data.get("privacy_level"):
+            photo.is_primary = data.get("is_primary", False)
+            photo.privacy_level = data.get("privacy_level")
+            photo.save(update_fields=["is_primary", "privacy_level"])
+
+        return Response(
+            {
+                "photo": PhotoSerializer(photo, context={"request": request}).data,
+                "upload_url": post["url"],
+                "upload_fields": post["fields"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PhotoFinalizeView(APIView):
+    """Step 2: confirm the S3 object exists and queue server-side validation
+    (file-signature check, decode, EXIF strip, re-encode, promote)."""
+
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "profile"
+
+    def post(self, request, pk):
+        profile = get_object_or_404(Profile, user=request.user, is_deleted=False)
+        photo = get_object_or_404(Photo, pk=pk, profile=profile)
+        finalize_upload(photo, validate_and_promote_photo)
+        return Response(PhotoSerializer(photo, context={"request": request}).data)
 
 
 class PhotoListView(generics.ListAPIView):
@@ -62,7 +104,7 @@ class PhotoListView(generics.ListAPIView):
 
     def get_queryset(self):
         profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
-        return profile.photos.all()[:6]
+        return profile.photos.exclude(status="failed").order_by("created_at")[:6]
 
 
 class PhotoDeleteView(generics.DestroyAPIView):

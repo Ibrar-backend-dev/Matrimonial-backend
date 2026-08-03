@@ -4,17 +4,28 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from core.validators import validate_profile_photo
-
 
 class PersonalPhoto(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("ready", "Ready"),
+        ("failed", "Failed"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="personal_photos",
     )
-    image = models.FileField(upload_to="personal_photos/", validators=[validate_profile_photo])
+    # S3 object key, private bucket. Points at the quarantine object while
+    # status="pending", the promoted serving object once status="ready".
+    # See core/media_storage.py and apps/gallery/tasks.py.
+    storage_key = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    content_type = models.CharField(max_length=50, blank=True, null=True)
+    width = models.PositiveIntegerField(blank=True, null=True)
+    height = models.PositiveIntegerField(blank=True, null=True)
     caption = models.CharField(max_length=255, blank=True)
     display_order = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -23,6 +34,14 @@ class PersonalPhoto(models.Model):
     class Meta:
         db_table = "personal_photos"
         ordering = ("display_order", "created_at")
+
+    def delete(self, *args, **kwargs):
+        from .tasks import delete_personal_photo_object
+
+        storage_key = self.storage_key
+        super().delete(*args, **kwargs)
+        if storage_key:
+            delete_personal_photo_object.delay(storage_key)
 
 
 class GalleryAccess(models.Model):
@@ -46,6 +65,9 @@ class GalleryAccess(models.Model):
 
     class Meta:
         db_table = "gallery_access"
+        indexes = [
+            models.Index(fields=["viewer"], name="gallery_access_viewer_idx"),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=("owner", "match_request"),

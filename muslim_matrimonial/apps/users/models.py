@@ -59,6 +59,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = "users"
+        indexes = [
+            models.Index(fields=["is_active", "status"], name="user_active_status_idx"),
+        ]
 
     def __str__(self):
         return self.email or self.phone

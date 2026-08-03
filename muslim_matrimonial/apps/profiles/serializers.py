@@ -1,52 +1,39 @@
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core import media_storage
 from core.utils import calculate_age
-from core.validators import validate_image_file
 
 from .models import Photo, Preference, Profile
 
 from apps.matches.models import MatchRequest
 
-MAX_PHOTO_SIZE = 2 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
+class PhotoUploadRequestSerializer(serializers.Serializer):
+    """Input for requesting a presigned upload slot -- no file bytes here,
+    the client uploads those directly to S3 with the returned fields."""
+
+    content_type = serializers.ChoiceField(choices=sorted(ALLOWED_IMAGE_TYPES))
+    is_primary = serializers.BooleanField(required=False, default=False)
+    privacy_level = serializers.ChoiceField(choices=Profile.PHOTO_PRIVACY_CHOICES, required=False, allow_null=True)
+
+
 class PhotoSerializer(serializers.ModelSerializer):
-    image = serializers.FileField(write_only=True, required=True)
     url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Photo
-        fields = ("id", "image", "url", "is_primary", "privacy_level")
-        read_only_fields = ("id", "url")
+        fields = ("id", "url", "status", "is_primary", "privacy_level", "width", "height", "created_at")
+        read_only_fields = ("id", "url", "status", "width", "height", "created_at")
 
     def get_url(self, instance):
-        request = self.context.get("request")
-        if instance.image and request is not None:
-            return request.build_absolute_uri(instance.image.url)
-        return None
-
-    def validate_image(self, value):
-        if value.size > MAX_PHOTO_SIZE:
-            raise serializers.ValidationError("Each photo must be 2 MB or smaller.")
-        if value.content_type not in ALLOWED_IMAGE_TYPES:
-            raise serializers.ValidationError("Supported image types are JPEG, PNG, and WEBP.")
-        try:
-            validate_image_file(value)
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError(exc.message)
-        return value
-
-    def validate(self, attrs):
-        profile = self.context.get("profile")
-        if profile and profile.photos.count() >= 6:
-            raise serializers.ValidationError("A gallery may contain a maximum of 6 photos.")
-        return attrs
+        if instance.status != "ready":
+            return None
+        return media_storage.signed_delivery_url(instance.storage_key)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data.pop("image", None)
         request = self.context.get("request")
         viewer = getattr(request, "user", None)
         level = instance.privacy_level or instance.profile.photo_privacy_level
@@ -88,7 +75,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         return calculate_age(obj.dob)
 
     def get_photos(self, obj):
-        photos = obj.photos.all()[:6]
+        photos = obj.photos.filter(status="ready")[:6]
         return PhotoSerializer(photos, many=True, context=self.context).data
 
     def get_is_complete(self, obj):

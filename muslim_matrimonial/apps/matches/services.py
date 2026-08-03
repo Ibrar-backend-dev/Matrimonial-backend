@@ -77,11 +77,23 @@ def suggestion_cache_key(user_id):
 
 
 def get_daily_suggestions(user, limit=10, refresh=False):
+    """Return up to `limit` suggested profiles, evaluating eligible_profiles() exactly once.
+
+    Cache hit: one query (pk__in=cached_ids) -- also revalidates that cached
+    candidates are still eligible, since a profile can stop being eligible
+    (deactivated, deleted, updated preferences) during the 24h cache TTL.
+    Cache miss: one query (the sliced, prefetch-ready eligible_profiles()
+    queryset itself), then the cache is populated from those same results --
+    no separate values_list() query is needed to get the id list.
+    """
     cache_key = suggestion_cache_key(user.pk)
-    ids = None if refresh else cache.get(cache_key)
-    if ids is None:
-        ids = list(eligible_profiles(user).values_list("pk", flat=True)[:limit])
-        cache.set(cache_key, [str(value) for value in ids], SUGGESTION_TTL_SECONDS)
-    profiles = eligible_profiles(user).filter(pk__in=ids)
-    by_id = {str(profile.pk): profile for profile in profiles}
-    return [by_id[str(profile_id)] for profile_id in ids if str(profile_id) in by_id]
+    if not refresh:
+        cached_ids = cache.get(cache_key)
+        if cached_ids is not None:
+            profiles = eligible_profiles(user).filter(pk__in=cached_ids)
+            by_id = {str(profile.pk): profile for profile in profiles}
+            return [by_id[str(profile_id)] for profile_id in cached_ids if str(profile_id) in by_id]
+
+    profiles = list(eligible_profiles(user)[:limit])
+    cache.set(cache_key, [str(profile.pk) for profile in profiles], SUGGESTION_TTL_SECONDS)
+    return profiles

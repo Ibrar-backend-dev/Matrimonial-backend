@@ -22,6 +22,11 @@ class MatchRequest(models.Model):
     class Meta:
         db_table = "match_requests"
         unique_together = ("sender", "receiver")
+        indexes = [
+            # unique_together above only backs sender-first lookups; this
+            # backs receiver-first lookups filtered by status (matches/views.py).
+            models.Index(fields=["receiver", "status"], name="match_receiver_status_idx"),
+        ]
 
     def clean(self):
         if self.sender_id == self.receiver_id:

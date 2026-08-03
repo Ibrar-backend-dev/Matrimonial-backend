@@ -1,49 +1,74 @@
-from django.db import transaction
+from django.conf import settings
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.exceptions import ValidationError
-from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from apps.matches.models import MatchRequest
 from apps.users.models import User
+from core.media_uploads import finalize_upload, reserve_upload_slot
 
 from .models import GalleryAccess, PersonalPhoto
-from .serializers import GalleryAccessSerializer, PersonalPhotoSerializer
+from .serializers import GalleryAccessSerializer, PersonalPhotoSerializer, PersonalPhotoUploadRequestSerializer
+from .tasks import validate_and_promote_personal_photo
 
 
 def other_match_user(match, user):
     return match.receiver if match.sender_id == user.id else match.sender
 
 
-class OwnPhotoListCreateView(generics.ListCreateAPIView):
+class OwnPhotoUploadRequestView(APIView):
+    """Step 1: reserve a personal-gallery slot and return a presigned S3 POST."""
+
+    def post(self, request):
+        serializer = PersonalPhotoUploadRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        photo, post = reserve_upload_slot(
+            model=PersonalPhoto,
+            owner_field="user",
+            owner=request.user,
+            user=request.user,
+            max_count=settings.MAX_PERSONAL_GALLERY_PHOTOS,
+            key_prefix="personal_photos",
+            content_type=data["content_type"],
+        )
+        photo.caption = data.get("caption", "")
+        photo.display_order = data.get("display_order", 0)
+        photo.save(update_fields=["caption", "display_order"])
+
+        return Response(
+            {
+                "photo": PersonalPhotoSerializer(photo, context={"request": request}).data,
+                "upload_url": post["url"],
+                "upload_fields": post["fields"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class OwnPhotoFinalizeView(APIView):
+    """Step 2: confirm the S3 object exists and queue server-side validation."""
+
+    def post(self, request, pk):
+        photo = get_object_or_404(PersonalPhoto, pk=pk, user=request.user)
+        finalize_upload(photo, validate_and_promote_personal_photo)
+        return Response(PersonalPhotoSerializer(photo, context={"request": request}).data)
+
+
+class OwnPhotoListView(generics.ListAPIView):
     serializer_class = PersonalPhotoSerializer
-    parser_classes = (MultiPartParser, FormParser)
 
     def get_queryset(self):
-        return PersonalPhoto.objects.filter(user=self.request.user)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            User.objects.select_for_update().get(pk=request.user.pk)
-            if PersonalPhoto.objects.filter(user=request.user).count() >= 6:
-                raise ValidationError("A personal gallery can contain at most 6 photos.")
-            photo = serializer.save(user=request.user)
-        return Response(
-            self.get_serializer(photo).data,
-            status=status.HTTP_201_CREATED,
-            headers=self.get_success_headers(serializer.data),
-        )
+        return PersonalPhoto.objects.filter(user=self.request.user).exclude(status="failed")
 
 
 class OwnPhotoDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PersonalPhotoSerializer
-    parser_classes = (MultiPartParser, FormParser)
     http_method_names = ("get", "patch", "delete", "head", "options")
 
     def get_queryset(self):
@@ -64,7 +89,7 @@ class SharedGalleryView(generics.ListAPIView):
             ).exists()
             if not has_access:
                 raise Http404
-        return PersonalPhoto.objects.filter(user=owner)
+        return PersonalPhoto.objects.filter(user=owner, status="ready")
 
 
 class GalleryAccessListView(generics.GenericAPIView):

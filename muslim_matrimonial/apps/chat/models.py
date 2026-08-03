@@ -13,10 +13,25 @@ class Message(models.Model):
     message = models.TextField()
     sent_at = models.DateTimeField(auto_now_add=True)
     read_status = models.BooleanField(default=False)
+    # Client-generated idempotency key for a WebSocket send: a retried send
+    # (flaky reconnect) with the same key returns the already-persisted
+    # message instead of creating a duplicate. Scoped to (match, sender) --
+    # not globally unique -- so one user's key can't collide with another's.
+    client_message_id = models.CharField(max_length=64, blank=True, null=True)
 
     class Meta:
         db_table = "messages"
         ordering = ("sent_at",)
+        indexes = [
+            models.Index(fields=["match", "sent_at"], name="message_match_sent_at_idx"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["match", "sender", "client_message_id"],
+                condition=models.Q(client_message_id__isnull=False) & ~models.Q(client_message_id=""),
+                name="unique_message_client_id_per_sender",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if self.match.status != "accepted":

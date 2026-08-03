@@ -71,7 +71,14 @@ def _build_otp_email(otp, purpose):
     return subject, text_body, html_body
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+@shared_task(
+    bind=True,
+    acks_late=True,
+    max_retries=3,
+    retry_backoff=True,
+    retry_backoff_max=120,
+    retry_jitter=True,
+)
 def send_otp(self, email, otp, purpose="verify"):
     if cache.get(otp_cache_key(email, purpose)) != otp:
         logger.info("Skipping stale OTP email for %s (%s); superseded or expired", email, purpose)

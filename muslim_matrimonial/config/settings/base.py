@@ -70,6 +70,17 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 if os.getenv("POSTGRES_DB"):
+    # CONN_MAX_AGE=0 + DISABLE_SERVER_SIDE_CURSORS: this app connects through
+    # PgBouncer in transaction-pooling mode in every real deployment. The
+    # external pooler holds the real Postgres connections; Django's own
+    # connections must stay short-lived (CONN_MAX_AGE=0) and must not rely on
+    # server-side cursors (broken under transaction-mode multiplexing, since a
+    # cursor can outlive the pooled connection it was opened on -- affects
+    # .iterator() and some pagination paths). See Phase 1b connection budget:
+    # PgBouncer's client-facing pool size is configured separately from
+    # Postgres's own max_connections, sized across every consumer (web,
+    # websocket, celery workers/queues, beat, admin/migrations, monitoring)
+    # with 10-20% of Postgres's real ceiling reserved for admin/emergency use.
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -78,6 +89,10 @@ if os.getenv("POSTGRES_DB"):
             "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
             "HOST": os.getenv("POSTGRES_HOST", "db"),
             "PORT": os.getenv("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
+            "OPTIONS": {
+                "DISABLE_SERVER_SIDE_CURSORS": env_bool("DB_DISABLE_SERVER_SIDE_CURSORS", True),
+            },
         }
     }
 else:
@@ -141,32 +156,124 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+def _redis_url(env_var, fallback_db):
+    """Resolve a Redis connection URL for one logical workload (cache/celery/channels).
+
+    Each workload has its own env var so it can be pointed at a fully separate
+    Redis instance later (e.g. splitting the Celery broker off) without touching
+    application code -- only the env var changes. REDIS_HOST/REDIS_PORT remain as
+    the local-dev fallback (single Redis container, separated by db number).
+    """
+    explicit = os.getenv(env_var)
+    if explicit:
+        return explicit
+    host = os.getenv("REDIS_HOST", "127.0.0.1")
+    port = os.getenv("REDIS_PORT", "6379")
+    return f"redis://{host}:{port}/{fallback_db}"
+
+
+# Two logical Redis roles at launch (see plan: eviction policy is instance-wide,
+# not per-db, so cache/throttling and the Celery broker must not share an
+# instance in production even though they can share one in local dev):
+#   - REDIS_CACHE_URL: Django cache + DRF throttling (+ Channels, until it needs
+#     its own instance -- see REDIS_CHANNELS_URL below).
+#   - REDIS_CELERY_URL: Celery broker/result backend. In production this should
+#     point at a dedicated instance configured with `noeviction` + persistence,
+#     since losing queued/in-flight tasks to an LRU eviction is unacceptable.
+#   - REDIS_CHANNELS_URL: Channels layer. Defaults to the cache instance (its
+#     own logical db) but is independently switchable to a third instance later
+#     purely via env var once WebSocket volume grows.
+REDIS_CACHE_URL = _redis_url("REDIS_CACHE_URL", 0)
+REDIS_CELERY_URL = _redis_url("REDIS_CELERY_URL", 1)
+REDIS_CHANNELS_URL = _redis_url("REDIS_CHANNELS_URL", 2)
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [(REDIS_HOST, REDIS_PORT)]},
+        "CONFIG": {
+            "hosts": [REDIS_CHANNELS_URL],
+            # Raised above the library default (100) for burst tolerance in
+            # active chat rooms; retune based on Phase 11 load-test results.
+            "capacity": int(os.getenv("CHANNELS_LAYER_CAPACITY", "300")),
+            "expiry": int(os.getenv("CHANNELS_LAYER_EXPIRY", "60")),
+        },
     }
 }
-CELERY_BROKER_URL = f"{REDIS_URL}/0"
-CELERY_RESULT_BACKEND = f"{REDIS_URL}/0"
+
+CELERY_BROKER_URL = REDIS_CELERY_URL
+CELERY_RESULT_BACKEND = REDIS_CELERY_URL
 CELERY_TASK_ALWAYS_EAGER = env_config("CELERY_TASK_ALWAYS_EAGER", default=DEBUG, cast=bool)
 CELERY_BEAT_SCHEDULE = {
     "build-daily-match-suggestions": {
         "task": "apps.matches.tasks.build_daily_suggestions",
         "schedule": 86400.0,
-    }
+    },
+    "sweep-abandoned-profile-photo-uploads": {
+        "task": "apps.profiles.tasks.sweep_abandoned_photo_uploads",
+        "schedule": 3600.0,
+    },
+    "sweep-abandoned-personal-photo-uploads": {
+        "task": "apps.gallery.tasks.sweep_abandoned_personal_photo_uploads",
+        "schedule": 3600.0,
+    },
+}
+
+# Dedicated queues so a burst of media/batch work can never delay OTP/auth
+# email delivery -- run `celery -A config worker -Q critical,default,media,batch`
+# (or separate worker processes per queue) rather than the single implicit
+# queue Celery uses by default.
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_ROUTES = {
+    "apps.users.tasks.send_otp": {"queue": "critical"},
+    "apps.matches.tasks.build_daily_suggestions": {"queue": "batch"},
+    "apps.profiles.tasks.validate_and_promote_photo": {"queue": "media"},
+    "apps.profiles.tasks.delete_photo_object": {"queue": "media"},
+    "apps.profiles.tasks.sweep_abandoned_photo_uploads": {"queue": "batch"},
+    "apps.gallery.tasks.validate_and_promote_personal_photo": {"queue": "media"},
+    "apps.gallery.tasks.delete_personal_photo_object": {"queue": "media"},
+    "apps.gallery.tasks.sweep_abandoned_personal_photo_uploads": {"queue": "batch"},
+}
+
+# Reliability: a killed/restarted worker redelivers its in-flight task
+# (acks_late) instead of losing it, bounded by a low prefetch multiplier so a
+# slow worker doesn't hoard tasks it can't get to promptly. visibility_timeout
+# must exceed the slowest expected task's runtime, or the broker will
+# redeliver a still-running task to another worker.
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = int(os.getenv("CELERY_WORKER_PREFETCH_MULTIPLIER", "1"))
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": int(os.getenv("CELERY_VISIBILITY_TIMEOUT_SECONDS", "3600")),
 }
 
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "unique-snowflake",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_CACHE_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
     }
 }
 CORS_ALLOWED_ORIGINS = [origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
+
+# Media: private S3 bucket, presigned direct-to-S3 uploads (client never
+# sends file bytes through Django), CloudFront for private signed delivery.
+# There is no public serving path -- every photo, regardless of its
+# privacy_level, is only ever reachable via a short-lived signed URL minted
+# after a Django-side authorization check.
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+AWS_S3_QUARANTINE_PREFIX = os.getenv("AWS_S3_QUARANTINE_PREFIX", "quarantine")
+CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN", "")
+CLOUDFRONT_KEY_PAIR_ID = os.getenv("CLOUDFRONT_KEY_PAIR_ID", "")
+CLOUDFRONT_PRIVATE_KEY = os.getenv("CLOUDFRONT_PRIVATE_KEY", "")
+MEDIA_UPLOAD_MAX_BYTES = int(os.getenv("MEDIA_UPLOAD_MAX_BYTES", str(2 * 1024 * 1024)))
+MEDIA_UPLOAD_URL_TTL_SECONDS = int(os.getenv("MEDIA_UPLOAD_URL_TTL_SECONDS", "300"))
+MEDIA_SIGNED_URL_TTL_SECONDS = int(os.getenv("MEDIA_SIGNED_URL_TTL_SECONDS", "300"))
+MEDIA_QUARANTINE_EXPIRY_HOURS = int(os.getenv("MEDIA_QUARANTINE_EXPIRY_HOURS", "24"))
+MAX_PROFILE_GALLERY_PHOTOS = 6
+MAX_PERSONAL_GALLERY_PHOTOS = 6
 
 EMAIL_BACKEND = env_config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = env_config("EMAIL_HOST", default="")

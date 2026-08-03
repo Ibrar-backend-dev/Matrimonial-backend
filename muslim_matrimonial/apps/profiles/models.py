@@ -3,9 +3,10 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 
-from core.validators import validate_adult_dob, validate_image_file
+from core.validators import validate_adult_dob
 
 
 GENDER_CHOICES = [("male", "Male"), ("female", "Female")]
@@ -62,6 +63,18 @@ class Profile(models.Model):
 
     class Meta:
         db_table = "profiles"
+        indexes = [
+            # Matches the always-combined filter in eligible_profiles()
+            # (apps/matches/services.py).
+            models.Index(fields=["is_deleted", "gender", "is_muslim_confirmed"], name="profile_visibility_idx"),
+            models.Index(fields=["dob"], name="profile_dob_idx"),
+            models.Index(fields=["updated_at"], name="profile_updated_at_idx"),
+            # Lower() indexes back the __iexact lookups on city/education --
+            # a plain btree index isn't used by __iexact.
+            models.Index(Lower("city"), name="profile_city_lower_idx"),
+            models.Index(Lower("education"), name="profile_education_lower_idx"),
+            models.Index(fields=["sect_maslak"], name="profile_sect_maslak_idx"),
+        ]
 
     def __str__(self):
         return self.name
@@ -76,7 +89,7 @@ class Profile(models.Model):
 
     @property
     def photo_count(self):
-        return self.photos.count()
+        return self.photos.filter(status="ready").count()
 
     @property
     def is_complete(self):
@@ -93,26 +106,26 @@ class Profile(models.Model):
         return all(required_fields) and self.photo_count >= 1
 
 
-def photo_upload_path(instance, filename):
-    header = instance.image.file.read(12)
-    instance.image.file.seek(0)
-    if header[:3] == b"\xff\xd8\xff":
-        ext = "jpg"
-    elif header[:8] == b"\x89PNG\r\n\x1a\n":
-        ext = "png"
-    elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
-        ext = "webp"
-    else:
-        ext = "bin"
-    return f"profile_photos/{uuid.uuid4()}.{ext}"
-
-
 class Photo(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("ready", "Ready"),
+        ("failed", "Failed"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="photos")
-    image = models.FileField(upload_to=photo_upload_path, blank=True, null=True, validators=[validate_image_file])
+    # S3 object key, private bucket -- never a public URL. Points at the
+    # quarantine object while status="pending", the promoted serving object
+    # once status="ready". See core/media_storage.py and apps/profiles/tasks.py.
+    storage_key = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    content_type = models.CharField(max_length=50, blank=True, null=True)
+    width = models.PositiveIntegerField(blank=True, null=True)
+    height = models.PositiveIntegerField(blank=True, null=True)
     is_primary = models.BooleanField(default=False)
     privacy_level = models.CharField(max_length=20, choices=Profile.PHOTO_PRIVACY_CHOICES, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "photos"
@@ -123,10 +136,12 @@ class Photo(models.Model):
             Photo.objects.filter(profile=self.profile, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
 
     def delete(self, *args, **kwargs):
-        image_name = self.image.name
+        from .tasks import delete_photo_object
+
+        storage_key = self.storage_key
         super().delete(*args, **kwargs)
-        if image_name:
-            self.image.storage.delete(image_name)
+        if storage_key:
+            delete_photo_object.delay(storage_key)
 
 
 class Preference(models.Model):
@@ -141,6 +156,12 @@ class Preference(models.Model):
 
     class Meta:
         db_table = "preferences"
+        indexes = [
+            models.Index(fields=["interested_in"], name="pref_interested_in_idx"),
+            models.Index(Lower("city_pref"), name="pref_city_lower_idx"),
+            models.Index(Lower("education_pref"), name="pref_education_lower_idx"),
+            models.Index(fields=["sect_pref"], name="pref_sect_pref_idx"),
+        ]
 
     def clean(self):
         if self.age_range_min < 18 or self.age_range_min > self.age_range_max:
