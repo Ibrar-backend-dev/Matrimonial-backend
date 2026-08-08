@@ -31,14 +31,24 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     throttle_scope = "profile"
 
     def get_object(self):
-        profile = super().get_object()
+        # Retrieve the object from the queryset without invoking DRF's
+        # automatic object-level permission check (super().get_object()
+        # calls check_object_permissions). We need to decide visibility
+        # first so incompatible profiles return 404 rather than 403.
+        lookup = {self.lookup_field: self.kwargs.get(self.lookup_url_kwarg or self.lookup_field)}
+        profile = get_object_or_404(self.get_queryset(), **lookup)
+
+        # For mutating requests, enforce object permissions.
         if self.request.method in {"PUT", "PATCH", "DELETE"}:
             self.check_object_permissions(self.request, profile)
+        # For read requests from non-owners, apply visibility rules and
+        # return 404 when a profile should be hidden.
         elif profile.user != self.request.user and not self.request.user.is_staff:
             from apps.matches.services import is_profile_visible_to
 
             if not is_profile_visible_to(self.request.user, profile):
                 raise NotFound("Profile not found.")
+
         return profile
 
     def perform_destroy(self, instance):

@@ -3,9 +3,12 @@ from datetime import timedelta
 from pathlib import Path
 
 from decouple import config as env_config
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 def env_bool(name, default=False):
@@ -34,9 +37,6 @@ INSTALLED_APPS = [
     "apps.verifications",
     "apps.matches",
     "apps.chat",
-    "apps.subscriptions",
-    "apps.reviews",
-    "apps.reports",
     "apps.gallery",
 ]
 
@@ -69,39 +69,23 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-if os.getenv("POSTGRES_DB"):
-    # CONN_MAX_AGE=0 + DISABLE_SERVER_SIDE_CURSORS: this app connects through
-    # PgBouncer in transaction-pooling mode in every real deployment. The
-    # external pooler holds the real Postgres connections; Django's own
-    # connections must stay short-lived (CONN_MAX_AGE=0) and must not rely on
-    # server-side cursors (broken under transaction-mode multiplexing, since a
-    # cursor can outlive the pooled connection it was opened on -- affects
-    # .iterator() and some pagination paths). See Phase 1b connection budget:
-    # PgBouncer's client-facing pool size is configured separately from
-    # Postgres's own max_connections, sized across every consumer (web,
-    # websocket, celery workers/queues, beat, admin/migrations, monitoring)
-    # with 10-20% of Postgres's real ceiling reserved for admin/emergency use.
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("POSTGRES_DB"),
-            "USER": os.getenv("POSTGRES_USER"),
-            "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-            "HOST": os.getenv("POSTGRES_HOST", "db"),
-            "PORT": os.getenv("POSTGRES_PORT", "5432"),
-            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
-            "OPTIONS": {
-                "DISABLE_SERVER_SIDE_CURSORS": env_bool("DB_DISABLE_SERVER_SIDE_CURSORS", True),
-            },
-        }
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+if not POSTGRES_DB:
+    raise ImproperlyConfigured(
+        "Postgres database not configured. Set POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST and POSTGRES_PORT environment variables."
+    )
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": POSTGRES_DB,
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("POSTGRES_HOST", "db"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

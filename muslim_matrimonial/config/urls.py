@@ -13,9 +13,8 @@ urlpatterns = [
     path("api/verifications/", include("apps.verifications.urls")),
     path("api/matches/", include("apps.matches.urls")),
     path("api/chat/", include("apps.chat.urls")),
-    path("api/subscriptions/", include("apps.subscriptions.urls")),
-    path("api/reviews/", include("apps.reviews.urls")),
-    path("api/reports/", include("apps.reports.urls")),
+    # subscriptions, reviews and reports apps were removed from the project
+    # their URL includes have been removed to avoid import errors
     path("api/gallery/", include("apps.gallery.urls")),
     path("api/admin/verifications/pending", PendingVerificationListView.as_view(), name="pending-verifications"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

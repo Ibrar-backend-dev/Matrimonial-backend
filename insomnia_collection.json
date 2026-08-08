@@ -1,0 +1,1683 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-08-05T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v8.6.0",
+  "resources": [
+    {
+      "_id": "wrk_matrimonial",
+      "parentId": null,
+      "modified": 1,
+      "created": 1,
+      "name": "Muslim Matrimonial API",
+      "description": "API collection for the Muslim Matrimonial Django REST backend, organized by app (users, profiles, matches, chat, gallery, verifications).",
+      "scope": "collection",
+      "_type": "workspace"
+    },
+    {
+      "_id": "env_base",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8000",
+        "access_token": "",
+        "refresh_token": "",
+        "user_id": "",
+        "profile_id": "",
+        "other_user_id": "",
+        "match_request_id": "",
+        "match_id": "",
+        "photo_id": "",
+        "gallery_photo_id": "",
+        "verification_id": ""
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "access_token",
+          "refresh_token",
+          "user_id",
+          "profile_id",
+          "other_user_id",
+          "match_request_id",
+          "match_id",
+          "photo_id",
+          "gallery_photo_id",
+          "verification_id"
+        ]
+      },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1,
+      "_type": "environment"
+    },
+    {
+      "_id": "fld_auth",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Auth (users)",
+      "description": "Registration, OTP, login, tokens, password reset, account deletion.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 1000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_auth_register",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/register",
+      "name": "Register",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test.user@example.com\",\n  \"password\": \"StrongPass123!\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_auth_verify_otp",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/verify-otp",
+      "name": "Verify OTP",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test.user@example.com\",\n  \"otp\": \"123456\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_auth_resend_otp",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/resend-otp",
+      "name": "Resend OTP",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test.user@example.com\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 300,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_auth_login",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/login",
+      "name": "Login",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test.user@example.com\",\n  \"password\": \"StrongPass123!\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 400,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.access) insomnia.environment.set('access_token', body.access);\nif (body.refresh) insomnia.environment.set('refresh_token', body.refresh);\nif (body.user && body.user.id) insomnia.environment.set('user_id', body.user.id);\n"
+    },
+    {
+      "_id": "req_auth_refresh",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/refresh-token",
+      "name": "Refresh Token",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"refresh\": \"{{ _.refresh_token }}\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 500,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.access) insomnia.environment.set('access_token', body.access);\n"
+    },
+    {
+      "_id": "req_auth_logout",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/logout",
+      "name": "Logout",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"refresh\": \"{{ _.refresh_token }}\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 600,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_auth_forgot_password_request",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/forgot-password",
+      "name": "Forgot Password - Request OTP",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test.user@example.com\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 700,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_auth_forgot_password_confirm",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/forgot-password",
+      "name": "Forgot Password - Confirm New Password",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test.user@example.com\",\n  \"otp\": \"123456\",\n  \"new_password\": \"NewStrongPass123!\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 800,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_auth_delete",
+      "parentId": "fld_auth",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/auth/delete",
+      "name": "Delete Account",
+      "description": "",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 900,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_profiles",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Profiles (profiles)",
+      "description": "Profile CRUD, profile photo upload/finalize, privacy settings, match preferences.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 2000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_profile_create",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/",
+      "name": "Create Profile",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Test User\",\n  \"gender\": \"male\",\n  \"dob\": \"1995-05-15\",\n  \"city\": \"Karachi\",\n  \"country\": \"Pakistan\",\n  \"sect_maslak\": \"sunni\",\n  \"education\": \"Bachelors\",\n  \"marital_status\": \"never_married\",\n  \"is_muslim_confirmed\": true,\n  \"photo_privacy_level\": \"blur_till_match\",\n  \"profession\": \"Software Engineer\",\n  \"ethnicity\": \"\",\n  \"languages\": \"Urdu, English\",\n  \"number_of_children\": 0,\n  \"prayer_level\": \"regular\",\n  \"hijab_beard_pref\": \"\",\n  \"smoking_pref\": \"no\",\n  \"drinking_pref\": \"no\",\n  \"halal_meat_pref\": true,\n  \"willing_to_relocate\": false,\n  \"marriage_intentions\": \"\",\n  \"wali_chaperone_required\": false,\n  \"bio\": \"A short bio about myself.\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.id) insomnia.environment.set('profile_id', body.id);\n"
+    },
+    {
+      "_id": "req_profile_detail_get",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/{{ _.profile_id }}",
+      "name": "Get Profile Detail",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_detail_patch",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/{{ _.profile_id }}",
+      "name": "Update Profile (partial)",
+      "description": "",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"bio\": \"An updated short bio.\",\n  \"city\": \"Lahore\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 300,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_detail_delete",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/{{ _.profile_id }}",
+      "name": "Delete Profile",
+      "description": "",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 400,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_upload_photo",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/upload-photo",
+      "name": "Request Profile Photo Upload",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"content_type\": \"image/jpeg\",\n  \"is_primary\": true,\n  \"privacy_level\": \"visible\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 500,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.photo && body.photo.id) insomnia.environment.set('photo_id', body.photo.id);\n"
+    },
+    {
+      "_id": "req_profile_finalize_photo",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/photos/{{ _.photo_id }}/finalize",
+      "name": "Finalize Profile Photo",
+      "description": "",
+      "method": "POST",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 600,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_list_photos",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/photos",
+      "name": "List Profile Photos",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 700,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_delete_photo",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/photos/{{ _.photo_id }}",
+      "name": "Delete Profile Photo",
+      "description": "",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 800,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_privacy_settings",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/privacy-settings",
+      "name": "Update Privacy Settings",
+      "description": "",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"photo_privacy_level\": \"blur_till_match\",\n  \"wali_chaperone_required\": false\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 900,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_preferences_get",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/preferences",
+      "name": "Get Preferences",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 1000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_preferences_put",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/preferences",
+      "name": "Set Preferences (full)",
+      "description": "",
+      "method": "PUT",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"interested_in\": \"female\",\n  \"age_range_min\": 20,\n  \"age_range_max\": 35,\n  \"city_pref\": \"\",\n  \"education_pref\": \"\",\n  \"sect_pref\": \"sunni\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 1100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_profile_preferences_patch",
+      "parentId": "fld_profiles",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/profile/preferences",
+      "name": "Update Preferences (partial)",
+      "description": "",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"age_range_max\": 40\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 1200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_matches",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Matches (matches)",
+      "description": "Daily suggestions, filtered search, sending and responding to match requests.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 3000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_matches_suggestions",
+      "parentId": "fld_matches",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/matches/suggestions",
+      "name": "Get Daily Suggestions",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_matches_filter",
+      "parentId": "fld_matches",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/matches/filter",
+      "name": "Filter Matches",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"interested_in\": \"female\",\n  \"age_range_min\": 20,\n  \"age_range_max\": 35,\n  \"city_pref\": \"\",\n  \"education_pref\": \"\",\n  \"sect_pref\": \"sunni\"\n}"
+      },
+      "parameters": [
+        {
+          "name": "page",
+          "value": "1",
+          "disabled": true
+        },
+        {
+          "name": "page_size",
+          "value": "10",
+          "disabled": true
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_matches_request_create",
+      "parentId": "fld_matches",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/matches/request/{{ _.other_user_id }}",
+      "name": "Send Match Request",
+      "description": "",
+      "method": "POST",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 300,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.id) insomnia.environment.set('match_request_id', body.id);\n"
+    },
+    {
+      "_id": "req_matches_respond",
+      "parentId": "fld_matches",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/matches/respond/{{ _.match_request_id }}",
+      "name": "Respond to Match Request",
+      "description": "",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"status\": \"accepted\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 400,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_chat",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Chat (chat)",
+      "description": "Message history for an accepted match.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 4000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_chat_history",
+      "parentId": "fld_chat",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/chat/{{ _.match_id }}/history",
+      "name": "Get Message History",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_gallery",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Gallery (gallery)",
+      "description": "Personal photo gallery upload/finalize, shared gallery viewing, and access grants.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 5000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_gallery_upload_request",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/photos/upload",
+      "name": "Request Personal Photo Upload",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"content_type\": \"image/jpeg\",\n  \"caption\": \"A caption\",\n  \"display_order\": 0\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.photo && body.photo.id) insomnia.environment.set('gallery_photo_id', body.photo.id);\n"
+    },
+    {
+      "_id": "req_gallery_finalize",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/photos/{{ _.gallery_photo_id }}/finalize",
+      "name": "Finalize Personal Photo",
+      "description": "",
+      "method": "POST",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_list_own",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/photos",
+      "name": "List Own Photos",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 300,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_detail_get",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/photos/{{ _.gallery_photo_id }}",
+      "name": "Get Own Photo Detail",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 400,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_detail_patch",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/photos/{{ _.gallery_photo_id }}",
+      "name": "Update Own Photo (caption/order)",
+      "description": "",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"caption\": \"An updated caption\",\n  \"display_order\": 1\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 500,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_detail_delete",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/photos/{{ _.gallery_photo_id }}",
+      "name": "Delete Own Photo",
+      "description": "",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 600,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_shared",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/users/{{ _.other_user_id }}/photos",
+      "name": "Get Shared Gallery (other user)",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 700,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_access_list",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/access",
+      "name": "List Gallery Access Grants",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 800,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_access_grant",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/access/{{ _.match_request_id }}",
+      "name": "Grant Gallery Access",
+      "description": "",
+      "method": "POST",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 900,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_gallery_access_revoke",
+      "parentId": "fld_gallery",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/gallery/access/{{ _.match_request_id }}",
+      "name": "Revoke Gallery Access",
+      "description": "",
+      "method": "DELETE",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 1000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_verifications",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Verifications (verifications)",
+      "description": "User self-verification submission and admin review endpoints.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 6000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_verif_submit",
+      "parentId": "fld_verifications",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/verifications/submit",
+      "name": "Submit Verification",
+      "description": "",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"faith_declaration_accepted\": true,\n  \"doc_url\": \"https://example.com/documents/id-card.pdf\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.id) insomnia.environment.set('verification_id', body.id);\n"
+    },
+    {
+      "_id": "req_verif_admin_pending",
+      "parentId": "fld_verifications",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/verifications/admin/pending",
+      "name": "Admin: List Pending Verifications",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [
+        {
+          "name": "status",
+          "value": "pending",
+          "disabled": true
+        },
+        {
+          "name": "selfie_verified",
+          "value": "false",
+          "disabled": true
+        },
+        {
+          "name": "user_email",
+          "value": "",
+          "disabled": true
+        },
+        {
+          "name": "has_doc_url",
+          "value": "true",
+          "disabled": true
+        },
+        {
+          "name": "page",
+          "value": "1",
+          "disabled": true
+        },
+        {
+          "name": "page_size",
+          "value": "10",
+          "disabled": true
+        }
+      ],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_verif_admin_update",
+      "parentId": "fld_verifications",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/verifications/admin/{{ _.verification_id }}",
+      "name": "Admin: Update Verification",
+      "description": "",
+      "method": "PATCH",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"selfie_verified\": true,\n  \"visit_status\": \"done\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 300,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_admin_root",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Admin (root alias)",
+      "description": "Root-level admin endpoint defined directly in config/urls.py, outside the app include()s.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 7000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_admin_root_pending",
+      "parentId": "fld_admin_root",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/admin/verifications/pending",
+      "name": "Admin: List Pending Verifications (root path)",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_docs",
+      "parentId": "wrk_matrimonial",
+      "modified": 1,
+      "created": 1,
+      "name": "Docs",
+      "description": "OpenAPI schema and Swagger UI.",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 8000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_docs_schema",
+      "parentId": "fld_docs",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/schema/",
+      "name": "OpenAPI Schema",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 100,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_docs_swagger",
+      "parentId": "fld_docs",
+      "modified": 1,
+      "created": 1,
+      "url": "{{ _.base_url }}/api/docs/",
+      "name": "Swagger UI",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 200,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    }
+  ]
+}
