@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from core import media_storage
 from core.utils import calculate_age
+from core.validators import validate_profile_photo
 
 from .models import Photo, Preference, Profile
 
@@ -11,12 +12,17 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class PhotoUploadRequestSerializer(serializers.Serializer):
-    """Input for requesting a presigned upload slot -- no file bytes here,
-    the client uploads those directly to S3 with the returned fields."""
+    """Input for requesting a presigned upload slot or uploading a file directly."""
 
-    content_type = serializers.ChoiceField(choices=sorted(ALLOWED_IMAGE_TYPES))
+    file = serializers.FileField(required=False, validators=[validate_profile_photo])
+    content_type = serializers.ChoiceField(choices=sorted(ALLOWED_IMAGE_TYPES), required=False)
     is_primary = serializers.BooleanField(required=False, default=False)
     privacy_level = serializers.ChoiceField(choices=Profile.PHOTO_PRIVACY_CHOICES, required=False, allow_null=True)
+
+    def validate(self, attrs):
+        if not attrs.get("file") and not attrs.get("content_type"):
+            raise serializers.ValidationError("A file upload or content_type is required.")
+        return attrs
 
 
 class PhotoSerializer(serializers.ModelSerializer):

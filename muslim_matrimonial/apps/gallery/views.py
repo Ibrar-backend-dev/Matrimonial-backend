@@ -3,12 +3,14 @@ from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from apps.matches.models import MatchRequest
 from apps.users.models import User
+from core import media_storage
 from core.media_uploads import finalize_upload, reserve_upload_slot
 
 from .models import GalleryAccess, PersonalPhoto
@@ -21,12 +23,30 @@ def other_match_user(match, user):
 
 
 class OwnPhotoUploadRequestView(APIView):
-    """Step 1: reserve a personal-gallery slot and return a presigned S3 POST."""
+    """Step 1: reserve a personal-gallery slot and return an upload request."""
 
     def post(self, request):
         serializer = PersonalPhotoUploadRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+
+        if data.get("file"):
+            if PersonalPhoto.objects.filter(user=request.user).exclude(status="failed").count() >= settings.MAX_PERSONAL_GALLERY_PHOTOS:
+                raise ValidationError(f"A gallery may contain a maximum of {settings.MAX_PERSONAL_GALLERY_PHOTOS} photos.")
+
+            file_obj = data["file"]
+            content_type = file_obj.content_type or data.get("content_type")
+            storage_key = media_storage.quarantine_key("personal_photos", request.user.pk, content_type)
+            photo = PersonalPhoto.objects.create(
+                user=request.user,
+                storage_key=storage_key,
+                content_type=content_type,
+                caption=data.get("caption", ""),
+                display_order=data.get("display_order", 0),
+            )
+            media_storage.put_object_bytes(storage_key, file_obj.read(), content_type)
+            validate_and_promote_personal_photo.delay(str(photo.pk))
+            return Response({"photo": PersonalPhotoSerializer(photo, context={"request": request}).data}, status=status.HTTP_201_CREATED)
 
         photo, post = reserve_upload_slot(
             model=PersonalPhoto,

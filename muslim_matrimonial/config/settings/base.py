@@ -102,7 +102,10 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# Temporary local media storage for development.
+# When AWS_STORAGE_BUCKET_NAME is unset, uploaded photos are saved under the
+# project root media folder so the app can run without S3 during development.
+MEDIA_ROOT = BASE_DIR.parent / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 
@@ -247,6 +250,8 @@ CORS_ALLOWED_ORIGINS = [origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "
 # privacy_level, is only ever reachable via a short-lived signed URL minted
 # after a Django-side authorization check.
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+# Local development uses MEDIA_ROOT storage when AWS_STORAGE_BUCKET_NAME is
+# unset. Set AWS_STORAGE_BUCKET_NAME to enable S3-backed photo storage.
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
 AWS_S3_QUARANTINE_PREFIX = os.getenv("AWS_S3_QUARANTINE_PREFIX", "quarantine")
 CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN", "")

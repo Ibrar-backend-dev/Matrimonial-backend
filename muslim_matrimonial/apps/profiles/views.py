@@ -5,6 +5,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core import media_storage
 from core.media_uploads import finalize_upload, reserve_upload_slot
 from core.permissions import IsAdminOrOwner
 from core.throttles import AuthenticatedUserThrottle
@@ -56,10 +57,11 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PhotoUploadRequestView(APIView):
-    """Step 1: reserve a gallery slot and return a presigned S3 POST.
+    """Step 1: reserve a gallery slot and return a presigned upload request.
 
-    The client uploads the file bytes directly to S3 with the returned
-    fields, then calls PhotoFinalizeView to trigger server-side validation.
+    The request may either upload a file directly or reserve an S3 presigned
+    POST slot. In local development, files are saved under MEDIA_ROOT instead
+    of requiring AWS S3 configuration.
     """
 
     throttle_classes = [AuthenticatedUserThrottle]
@@ -70,6 +72,22 @@ class PhotoUploadRequestView(APIView):
         serializer = PhotoUploadRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+
+        if data.get("file"):
+            if profile.photos.exclude(status="failed").count() >= settings.MAX_PROFILE_GALLERY_PHOTOS:
+                raise ValidationError(f"A gallery may contain a maximum of {settings.MAX_PROFILE_GALLERY_PHOTOS} photos.")
+
+            file_obj = data["file"]
+            content_type = file_obj.content_type or data.get("content_type")
+            storage_key = media_storage.quarantine_key("profile_photos", request.user.pk, content_type)
+            photo = Photo.objects.create(profile=profile, storage_key=storage_key, content_type=content_type)
+            media_storage.put_object_bytes(storage_key, file_obj.read(), content_type)
+            if data.get("is_primary") or data.get("privacy_level"):
+                photo.is_primary = data.get("is_primary", False)
+                photo.privacy_level = data.get("privacy_level")
+                photo.save(update_fields=["is_primary", "privacy_level"])
+            validate_and_promote_photo.delay(str(photo.pk))
+            return Response({"photo": PhotoSerializer(photo, context={"request": request}).data}, status=status.HTTP_201_CREATED)
 
         photo, post = reserve_upload_slot(
             model=Photo,

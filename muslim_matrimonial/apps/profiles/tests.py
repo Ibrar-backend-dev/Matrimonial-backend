@@ -1,6 +1,8 @@
 import io
+from pathlib import Path
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -118,6 +120,23 @@ class PhotoUploadFlowTests(TestCase):
         photo_id = response.data["photo"]["id"]
         finalize_response = self._finalize(photo_id, make_image_bytes("WEBP"))
         self.assertEqual(finalize_response.data["status"], "ready")
+
+    def test_direct_file_upload_accepted(self):
+        upload = make_upload("direct.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
+        with patch("apps.profiles.views.validate_and_promote_photo.delay") as mock_delay:
+            response = self.client.post(self.request_url, {"file": upload}, format="multipart")
+        self.assertEqual(response.status_code, 201)
+        photo_id = response.data["photo"]["id"]
+        photo = Photo.objects.get(pk=photo_id)
+        self.assertEqual(photo.status, "pending")
+        mock_delay.assert_called_once_with(str(photo.pk))
+        self.assertTrue((Path(settings.MEDIA_ROOT) / photo.storage_key).exists())
+
+    def test_direct_file_upload_rejects_oversize(self):
+        oversized = make_upload("large.jpg", make_image_bytes("JPEG") + b"\x00" * (3 * 1024 * 1024), content_type="image/jpeg")
+        with patch("apps.profiles.views.validate_and_promote_photo.delay"):
+            response = self.client.post(self.request_url, {"file": oversized}, format="multipart")
+        self.assertEqual(response.status_code, 400)
 
     def test_non_image_bytes_rejected(self):
         response = self._request_upload(content_type="image/jpeg")
