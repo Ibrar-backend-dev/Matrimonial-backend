@@ -121,8 +121,8 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
-        "otp_email": "4/hour",
-        "auth": "5/hour",
+        "otp_email": "40/hour",
+        "auth": "50/hour",
         "auth_authenticated": "50/hour",
         "profile": "50/hour",
         "match": "50/hour",
@@ -130,8 +130,10 @@ REST_FRAMEWORK = {
     },
 }
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=36500),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=36500),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
 }
 SPECTACULAR_SETTINGS = {
     "TITLE": "Muslim Matrimonial API",
