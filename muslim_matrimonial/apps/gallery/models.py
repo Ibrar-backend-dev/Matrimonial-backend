@@ -86,7 +86,7 @@ class GalleryAccess(models.Model):
                 name="unique_gallery_access_per_owner_match",
             ),
             models.CheckConstraint(
-                check=~models.Q(owner=models.F("viewer")),
+                condition=~models.Q(owner=models.F("viewer")),
                 name="gallery_owner_and_viewer_differ",
             ),
         ]

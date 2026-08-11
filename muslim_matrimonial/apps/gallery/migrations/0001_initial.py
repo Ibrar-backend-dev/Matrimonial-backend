@@ -56,6 +56,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='galleryaccess',
-            constraint=models.CheckConstraint(check=models.Q(('owner', models.F('viewer')), _negated=True), name='gallery_owner_and_viewer_differ'),
+            constraint=models.CheckConstraint(condition=models.Q(('owner', models.F('viewer')), _negated=True), name='gallery_owner_and_viewer_differ'),
         ),
     ]
