@@ -1,0 +1,12 @@
+**/__pycache__/
+**/*.pyc
+venv/
+.venv/
+.git/
+.env
+media/
+staticfiles/
+*.sqlite3
+muslim_matrimonial.insomnia.json
+PROJECT_CAPACITY_SUMMARY.md
+README.md
