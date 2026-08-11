@@ -160,6 +160,11 @@ def _redis_url(env_var, fallback_db):
     """
     explicit = os.getenv(env_var)
     if explicit:
+        if not explicit.startswith(("redis://", "rediss://", "unix://")):
+            raise ImproperlyConfigured(
+                f"{env_var} is set but is not a valid Redis URL: {explicit!r}. "
+                "Check that any ${{Service.VAR}} reference used to build it actually resolves."
+            )
         return explicit
     host = os.getenv("REDIS_HOST", "127.0.0.1")
     port = os.getenv("REDIS_PORT", "6379")
