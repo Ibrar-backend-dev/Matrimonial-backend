@@ -5,21 +5,24 @@ from core.validators import validate_profile_photo
 
 from .models import PersonalPhoto
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+# ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}  -- only needed by the presigned-upload mode below
 
 
 class PersonalPhotoUploadRequestSerializer(serializers.Serializer):
-    """Input for requesting a presigned upload slot or uploading a file directly."""
+    """Direct file upload only, for local-dev/testing. See core/validators.py:validate_profile_photo
+    for the 2MB size / extension / file-signature checks."""
 
-    file = serializers.FileField(required=False, validators=[validate_profile_photo])
-    content_type = serializers.ChoiceField(choices=sorted(ALLOWED_IMAGE_TYPES), required=False)
+    file = serializers.FileField(validators=[validate_profile_photo])
     caption = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
     display_order = serializers.IntegerField(required=False, default=0, min_value=0)
 
-    def validate(self, attrs):
-        if not attrs.get("file") and not attrs.get("content_type"):
-            raise serializers.ValidationError("A file upload or content_type is required.")
-        return attrs
+    # --- Presigned S3 upload mode (disabled for now -- direct upload only) ---
+    # content_type = serializers.ChoiceField(choices=sorted(ALLOWED_IMAGE_TYPES), required=False)
+    #
+    # def validate(self, attrs):
+    #     if not attrs.get("file") and not attrs.get("content_type"):
+    #         raise serializers.ValidationError("A file upload or content_type is required.")
+    #     return attrs
 
 
 class PersonalPhotoSerializer(serializers.ModelSerializer):

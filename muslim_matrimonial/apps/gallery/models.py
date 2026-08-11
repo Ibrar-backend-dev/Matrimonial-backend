@@ -4,6 +4,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from core.validators import validate_profile_photo
+
 
 class PersonalPhoto(models.Model):
     STATUS_CHOICES = [
@@ -22,6 +24,7 @@ class PersonalPhoto(models.Model):
     # status="pending", the promoted serving object once status="ready".
     # See core/media_storage.py and apps/gallery/tasks.py.
     storage_key = models.CharField(max_length=255, blank=True, null=True)
+    file = models.FileField(upload_to="gallery_photos/%Y/%m/%d/", blank=True, null=True, validators=[validate_profile_photo])
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     content_type = models.CharField(max_length=50, blank=True, null=True)
     width = models.PositiveIntegerField(blank=True, null=True)
@@ -34,6 +37,15 @@ class PersonalPhoto(models.Model):
     class Meta:
         db_table = "personal_photos"
         ordering = ("display_order", "created_at")
+
+    def clean(self):
+        super().clean()
+        if self.file:
+            validate_profile_photo(self.file)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         from .tasks import delete_personal_photo_object

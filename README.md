@@ -292,3 +292,86 @@ is generated synchronously so it's available immediately for tests/`DEBUG`
 responses even if the email task is delayed. Photo validation
 (`validate_and_promote_photo`, `validate_and_promote_personal_photo`) and
 object deletion run on the `media` queue.
+
+## Deployment (Railway)
+
+The app needs five Railway services in one project, all built from the same
+`Dockerfile` at the repo root:
+
+| Service | Config file | Start command |
+|---|---|---|
+| `web` | `railway.json` | migrate → collectstatic → `gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker` (ASGI, so Channels/WebSockets work) |
+| `celery-worker` | `railway.worker.json` | `celery -A config worker -Q critical,default,media,batch` |
+| `celery-beat` | `railway.beat.json` | `celery -A config beat` |
+| `Postgres` | Railway plugin | — |
+| `Redis` | Railway plugin | — |
+
+For `celery-worker` and `celery-beat`, set the service's **Config-as-code
+path** (Settings → Config) to `railway.worker.json` / `railway.beat.json`
+respectively — `railway.json` is the default picked up automatically by the
+`web` service.
+
+### Environment variables
+
+Set these on `web`, `celery-worker`, and `celery-beat` (Celery needs the DB
+and Redis vars too; it doesn't need `DJANGO_ALLOWED_HOSTS`/CORS/email vars
+unless a task sends email, which `send_otp` does):
+
+```
+DJANGO_SETTINGS_MODULE=config.settings.production
+DJANGO_SECRET_KEY=<generate one>
+DJANGO_ALLOWED_HOSTS=${{RAILWAY_PUBLIC_DOMAIN}}
+CORS_ALLOWED_ORIGINS=                     # native Android client doesn't need CORS; add web-frontend origins here if one exists
+
+POSTGRES_DB=${{Postgres.PGDATABASE}}
+POSTGRES_USER=${{Postgres.PGUSER}}
+POSTGRES_PASSWORD=${{Postgres.PGPASSWORD}}
+POSTGRES_HOST=${{Postgres.PGHOST}}
+POSTGRES_PORT=${{Postgres.PGPORT}}
+
+# Single shared Redis instance for launch (see the eviction-policy warning
+# in config/settings/base.py) -- split REDIS_CELERY_URL onto its own Redis
+# plugin later purely by changing this one var, no code change needed.
+REDIS_CACHE_URL=${{Redis.REDIS_URL}}/0
+REDIS_CELERY_URL=${{Redis.REDIS_URL}}/1
+REDIS_CHANNELS_URL=${{Redis.REDIS_URL}}/2
+
+CELERY_TASK_ALWAYS_EAGER=false            # production.py refuses to boot if this is true
+
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=...
+EMAIL_HOST_USER=...
+EMAIL_HOST_PASSWORD=...
+DEFAULT_FROM_EMAIL=...
+```
+
+Add `AWS_STORAGE_BUCKET_NAME` / `AWS_S3_REGION_NAME` / `CLOUDFRONT_*` once S3
+delivery is re-enabled (see the media storage note below).
+
+### Media storage — read before going live
+
+Photo uploads currently write straight to local disk (`MEDIA_ROOT`,
+`apps/profiles/views.py:PhotoUploadRequestView` / the `apps.gallery`
+equivalent) — the presigned-S3 path described earlier in this README is
+commented out. Railway service filesystems are ephemeral: every redeploy
+wipes them, and a second replica of `web` wouldn't share the first
+replica's files. Two options, in order of effort:
+
+1. **Attach a Railway Volume** to the `web` service, mounted at `/app/media`
+   (`BASE_DIR.parent / "media"`, resolved inside the container — see
+   `config/settings/base.py`). Fixes the wipe-on-redeploy problem, but only
+   works with exactly one `web` replica.
+2. **Re-enable the S3 path** (the code for it is already written and
+   commented out in `PhotoUploadRequestView`/`PhotoUploadRequestSerializer`
+   and the `apps.gallery` equivalents) — the durable fix, and required
+   before running more than one `web` replica.
+
+Static files (admin CSS/JS, Swagger UI assets) are served by `whitenoise`
+(`WhiteNoiseMiddleware` in `MIDDLEWARE`, added for this deployment) since
+there's no separate static-file host in front of the app.
+
+### Health checks
+
+`GET /healthz/` returns a bare `200 ok` with no auth — used by
+`railway.json`'s `healthcheckPath` since every other route requires a JWT or
+staff login and would otherwise report the deploy as unhealthy.

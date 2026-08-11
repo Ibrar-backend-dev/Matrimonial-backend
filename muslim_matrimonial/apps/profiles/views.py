@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core import media_storage
-from core.media_uploads import finalize_upload, reserve_upload_slot
+from core.media_uploads import finalize_upload  # reserve_upload_slot -- only needed by the presigned-upload mode below
 from core.permissions import IsAdminOrOwner
 from core.throttles import AuthenticatedUserThrottle
 
@@ -57,11 +57,11 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PhotoUploadRequestView(APIView):
-    """Step 1: reserve a gallery slot and return a presigned upload request.
-
-    The request may either upload a file directly or reserve an S3 presigned
-    POST slot. In local development, files are saved under MEDIA_ROOT instead
-    of requiring AWS S3 configuration.
+    """Direct file upload, for local-dev/testing. The file is validated
+    (2MB max, extension + signature check -- see PhotoUploadRequestSerializer)
+    and written straight to quarantine storage; MEDIA_ROOT (project-root
+    `media/` folder) is used automatically since no S3 bucket is configured
+    locally. See core/media_storage.py.
     """
 
     throttle_classes = [AuthenticatedUserThrottle]
@@ -73,44 +73,54 @@ class PhotoUploadRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        if data.get("file"):
-            if profile.photos.exclude(status="failed").count() >= settings.MAX_PROFILE_GALLERY_PHOTOS:
-                raise ValidationError(f"A gallery may contain a maximum of {settings.MAX_PROFILE_GALLERY_PHOTOS} photos.")
+        # --- Presigned S3 upload mode (disabled for now -- direct upload only) ---
+        # if data.get("file"):
+        #     ... (same direct-upload branch as below) ...
+        #
+        # photo, post = reserve_upload_slot(
+        #     model=Photo,
+        #     owner_field="profile",
+        #     owner=profile,
+        #     user=request.user,
+        #     max_count=settings.MAX_PROFILE_GALLERY_PHOTOS,
+        #     key_prefix="profile_photos",
+        #     content_type=data["content_type"],
+        # )
+        # if data.get("is_primary") or data.get("privacy_level"):
+        #     photo.is_primary = data.get("is_primary", False)
+        #     photo.privacy_level = data.get("privacy_level")
+        #     photo.save(update_fields=["is_primary", "privacy_level"])
+        #
+        # return Response(
+        #     {
+        #         "photo": PhotoSerializer(photo, context={"request": request}).data,
+        #         "upload_url": post["url"],
+        #         "upload_fields": post["fields"],
+        #     },
+        #     status=status.HTTP_201_CREATED,
+        # )
 
-            file_obj = data["file"]
-            content_type = file_obj.content_type or data.get("content_type")
-            storage_key = media_storage.quarantine_key("profile_photos", request.user.pk, content_type)
-            photo = Photo.objects.create(profile=profile, storage_key=storage_key, content_type=content_type)
-            media_storage.put_object_bytes(storage_key, file_obj.read(), content_type)
-            if data.get("is_primary") or data.get("privacy_level"):
-                photo.is_primary = data.get("is_primary", False)
-                photo.privacy_level = data.get("privacy_level")
-                photo.save(update_fields=["is_primary", "privacy_level"])
-            validate_and_promote_photo.delay(str(photo.pk))
-            return Response({"photo": PhotoSerializer(photo, context={"request": request}).data}, status=status.HTTP_201_CREATED)
+        if profile.photos.exclude(status="failed").count() >= settings.MAX_PROFILE_GALLERY_PHOTOS:
+            raise ValidationError(f"A gallery may contain a maximum of {settings.MAX_PROFILE_GALLERY_PHOTOS} photos.")
 
-        photo, post = reserve_upload_slot(
-            model=Photo,
-            owner_field="profile",
-            owner=profile,
-            user=request.user,
-            max_count=settings.MAX_PROFILE_GALLERY_PHOTOS,
-            key_prefix="profile_photos",
-            content_type=data["content_type"],
+        file_obj = data["file"]
+        file_obj.seek(0)
+        content_type = file_obj.content_type
+        storage_key = media_storage.quarantine_key("profile_photos", request.user.pk, content_type)
+        photo = Photo.objects.create(
+            profile=profile,
+            storage_key=storage_key,
+            content_type=content_type,
+            file=file_obj,
         )
+        file_obj.seek(0)
+        media_storage.put_object_bytes(storage_key, file_obj.read(), content_type)
         if data.get("is_primary") or data.get("privacy_level"):
             photo.is_primary = data.get("is_primary", False)
             photo.privacy_level = data.get("privacy_level")
             photo.save(update_fields=["is_primary", "privacy_level"])
-
-        return Response(
-            {
-                "photo": PhotoSerializer(photo, context={"request": request}).data,
-                "upload_url": post["url"],
-                "upload_fields": post["fields"],
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        validate_and_promote_photo.delay(str(photo.pk))
+        return Response({"photo": PhotoSerializer(photo, context={"request": request}).data}, status=status.HTTP_201_CREATED)
 
 
 class PhotoFinalizeView(APIView):

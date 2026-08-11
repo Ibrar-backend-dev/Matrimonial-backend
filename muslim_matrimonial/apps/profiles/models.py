@@ -6,7 +6,8 @@ from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
 
-from core.validators import validate_adult_dob
+from .tasks import delete_photo_object
+from core.validators import validate_adult_dob, validate_profile_photo
 
 
 GENDER_CHOICES = [("male", "Male"), ("female", "Female")]
@@ -18,7 +19,8 @@ class Profile(models.Model):
         ("shia", "Shia"),
         ("deobandi", "Deobandi"),
         ("barelvi", "Barelvi"),
-        ("salafi", "Salafi/Ahle Hadith"),
+        ("salafi", "Salafi"),
+        ("ahle_hadith", "Ahle Hadith"),
     ]
     MARITAL_STATUS_CHOICES = [
         ("never_married", "Never Married"),
@@ -119,6 +121,7 @@ class Photo(models.Model):
     # quarantine object while status="pending", the promoted serving object
     # once status="ready". See core/media_storage.py and apps/profiles/tasks.py.
     storage_key = models.CharField(max_length=255, blank=True, null=True)
+    file = models.FileField(upload_to="profile_photos/%Y/%m/%d/", blank=True, null=True, validators=[validate_profile_photo])
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     content_type = models.CharField(max_length=50, blank=True, null=True)
     width = models.PositiveIntegerField(blank=True, null=True)
@@ -130,13 +133,18 @@ class Photo(models.Model):
     class Meta:
         db_table = "photos"
 
+    def clean(self):
+        super().clean()
+        if self.file:
+            validate_profile_photo(self.file)
+
     def save(self, *args, **kwargs):
+        self.full_clean()
         super().save(*args, **kwargs)
         if self.is_primary:
             Photo.objects.filter(profile=self.profile, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
 
     def delete(self, *args, **kwargs):
-        from .tasks import delete_photo_object
 
         storage_key = self.storage_key
         super().delete(*args, **kwargs)

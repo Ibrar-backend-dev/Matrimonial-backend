@@ -33,7 +33,7 @@ def make_image_bytes(image_format="JPEG", size=(4, 4)):
     return buffer.getvalue()
 
 
-FAKE_PRESIGN_POST = {"url": "https://bucket.s3.amazonaws.com", "fields": {"key": "quarantine/x"}}
+# FAKE_PRESIGN_POST = {"url": "https://bucket.s3.amazonaws.com", "fields": {"key": "quarantine/x"}}  -- presigned mode disabled for now
 
 
 class ValidateImageFileTests(TestCase):
@@ -62,10 +62,15 @@ class ValidateImageFileTests(TestCase):
 
 
 class PhotoUploadFlowTests(TestCase):
-    """Covers the two-step presigned-upload flow: request a slot (mocking the
-    S3 presign call), then finalize (mocking S3 object fetch/put/delete so the
-    real Celery validation task -- Pillow decode, EXIF strip, re-encode --
-    still runs against real image bytes, exercising real validation logic).
+    """Covers the direct-upload flow (local-dev/testing): the file is
+    validated up front (core/validators.py:validate_profile_photo -- 2MB
+    size cap, extension, and signature check) and, unless the Celery task
+    is mocked out, the real validation/promotion task also runs synchronously
+    here since CELERY_TASK_ALWAYS_EAGER is on for tests -- so a successful
+    upload lands as "ready" (or "failed") in the same request/response.
+
+    The presigned-S3 two-step flow (request slot -> finalize) is disabled
+    for now; see the commented-out branches in views.py/serializers.py.
     """
 
     def setUp(self):
@@ -85,41 +90,27 @@ class PhotoUploadFlowTests(TestCase):
         self.client.force_authenticate(self.user)
         self.request_url = reverse("profiles:upload-photo-request")
 
-    def _request_upload(self, **payload):
-        payload.setdefault("content_type", "image/jpeg")
-        with patch("core.media_storage.create_presigned_post", return_value=FAKE_PRESIGN_POST):
-            return self.client.post(self.request_url, payload, format="json")
-
-    def _finalize(self, photo_id, data, content_type="image/jpeg"):
-        finalize_url = reverse("profiles:photo-finalize", kwargs={"pk": photo_id})
-        with (
-            patch("core.media_storage.head_object", return_value={"size": len(data), "content_type": content_type}),
-            patch("core.media_storage.get_object_bytes", return_value=data),
-            patch("core.media_storage.put_object_bytes"),
-            patch("core.media_storage.delete_object"),
-            patch("core.media_storage.signed_delivery_url", return_value="https://cdn.example.com/signed"),
-        ):
-            return self.client.post(finalize_url)
+    def _upload(self, name, content, content_type="image/jpeg", **extra):
+        upload = make_upload(name, content, content_type=content_type)
+        return self.client.post(self.request_url, {"file": upload, **extra}, format="multipart")
 
     def test_valid_jpeg_accepted(self):
-        response = self._request_upload(content_type="image/jpeg")
+        response = self._upload("a.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
         self.assertEqual(response.status_code, 201)
         photo_id = response.data["photo"]["id"]
-        finalize_response = self._finalize(photo_id, make_image_bytes("JPEG"))
-        self.assertEqual(finalize_response.data["status"], "ready")
         self.assertEqual(Photo.objects.get(pk=photo_id).status, "ready")
 
     def test_valid_png_accepted(self):
-        response = self._request_upload(content_type="image/png")
+        response = self._upload("a.png", make_image_bytes("PNG"), content_type="image/png")
+        self.assertEqual(response.status_code, 201)
         photo_id = response.data["photo"]["id"]
-        finalize_response = self._finalize(photo_id, make_image_bytes("PNG"))
-        self.assertEqual(finalize_response.data["status"], "ready")
+        self.assertEqual(Photo.objects.get(pk=photo_id).status, "ready")
 
     def test_valid_webp_accepted(self):
-        response = self._request_upload(content_type="image/webp")
+        response = self._upload("a.webp", make_image_bytes("WEBP"), content_type="image/webp")
+        self.assertEqual(response.status_code, 201)
         photo_id = response.data["photo"]["id"]
-        finalize_response = self._finalize(photo_id, make_image_bytes("WEBP"))
-        self.assertEqual(finalize_response.data["status"], "ready")
+        self.assertEqual(Photo.objects.get(pk=photo_id).status, "ready")
 
     def test_direct_file_upload_accepted(self):
         upload = make_upload("direct.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
@@ -138,35 +129,37 @@ class PhotoUploadFlowTests(TestCase):
             response = self.client.post(self.request_url, {"file": oversized}, format="multipart")
         self.assertEqual(response.status_code, 400)
 
+    def test_model_rejects_invalid_file_on_save(self):
+        with self.assertRaises(DjangoValidationError):
+            Photo.objects.create(
+                profile=self.profile,
+                file=SimpleUploadedFile("bad.jpg", NOT_AN_IMAGE, content_type="image/jpeg"),
+            )
+
     def test_non_image_bytes_rejected(self):
-        response = self._request_upload(content_type="image/jpeg")
-        photo_id = response.data["photo"]["id"]
-        finalize_response = self._finalize(photo_id, NOT_AN_IMAGE)
-        self.assertEqual(finalize_response.data["status"], "failed")
-        self.assertIsNone(Photo.objects.get(pk=photo_id).storage_key)
+        response = self._upload("fake.jpg", NOT_AN_IMAGE, content_type="image/jpeg")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Photo.objects.count(), 0)
 
     def test_oversized_file_rejected(self):
-        response = self._request_upload(content_type="image/jpeg")
-        photo_id = response.data["photo"]["id"]
         oversized = make_image_bytes("JPEG") + b"\x00" * (3 * 1024 * 1024)
-        finalize_response = self._finalize(photo_id, oversized)
-        self.assertEqual(finalize_response.data["status"], "failed")
+        response = self._upload("large.jpg", oversized, content_type="image/jpeg")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Photo.objects.count(), 0)
 
     def test_gallery_cap_of_six_enforced(self):
-        with patch("core.media_storage.create_presigned_post", return_value=FAKE_PRESIGN_POST):
-            for _ in range(6):
-                response = self.client.post(self.request_url, {"content_type": "image/jpeg"}, format="json")
+        with patch("apps.profiles.views.validate_and_promote_photo.delay"):
+            for i in range(6):
+                response = self._upload(f"{i}.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
                 self.assertEqual(response.status_code, 201)
-            seventh = self.client.post(self.request_url, {"content_type": "image/jpeg"}, format="json")
+            seventh = self._upload("seventh.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
         self.assertEqual(seventh.status_code, 400)
         self.assertEqual(Photo.objects.count(), 6)
 
     def test_is_primary_single_primary_enforced(self):
-        with patch("core.media_storage.create_presigned_post", return_value=FAKE_PRESIGN_POST):
-            self.client.post(self.request_url, {"content_type": "image/jpeg", "is_primary": True}, format="json")
-            second = self.client.post(
-                self.request_url, {"content_type": "image/jpeg", "is_primary": True}, format="json"
-            )
+        with patch("apps.profiles.views.validate_and_promote_photo.delay"):
+            self._upload("first.jpg", make_image_bytes("JPEG"), content_type="image/jpeg", is_primary=True)
+            second = self._upload("second.jpg", make_image_bytes("JPEG"), content_type="image/jpeg", is_primary=True)
         self.assertEqual(second.status_code, 201)
         photos = list(Photo.objects.filter(profile=self.profile))
         primaries = [p for p in photos if p.is_primary]
