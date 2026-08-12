@@ -171,6 +171,16 @@ def _redis_url(env_var, fallback_db):
     return f"redis://{host}:{port}/{fallback_db}"
 
 
+# REDIS_ENABLED/CELERY_ENABLED: escape hatch for a smoke-test deploy that has
+# no Redis/worker provisioned yet -- flip these off so the web process never
+# tries to dial Redis (cache/channels fall back to per-process backends) and
+# Celery tasks run inline instead of being queued to a broker that doesn't
+# exist. CELERY_ENABLED is forced off whenever Redis is, since there is no
+# broker to talk to without it. NOT a substitute for the real thing once more
+# than one web process is running -- see the else branches below.
+REDIS_ENABLED = env_bool("REDIS_ENABLED", True)
+CELERY_ENABLED = env_bool("CELERY_ENABLED", True) and REDIS_ENABLED
+
 # Two logical Redis roles at launch (see plan: eviction policy is instance-wide,
 # not per-db, so cache/throttling and the Celery broker must not share an
 # instance in production even though they can share one in local dev):
@@ -182,26 +192,35 @@ def _redis_url(env_var, fallback_db):
 #   - REDIS_CHANNELS_URL: Channels layer. Defaults to the cache instance (its
 #     own logical db) but is independently switchable to a third instance later
 #     purely via env var once WebSocket volume grows.
-REDIS_CACHE_URL = _redis_url("REDIS_CACHE_URL", 0)
-REDIS_CELERY_URL = _redis_url("REDIS_CELERY_URL", 1)
-REDIS_CHANNELS_URL = _redis_url("REDIS_CHANNELS_URL", 2)
+if REDIS_ENABLED:
+    REDIS_CACHE_URL = _redis_url("REDIS_CACHE_URL", 0)
+    REDIS_CELERY_URL = _redis_url("REDIS_CELERY_URL", 1)
+    REDIS_CHANNELS_URL = _redis_url("REDIS_CHANNELS_URL", 2)
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [REDIS_CHANNELS_URL],
-            # Raised above the library default (100) for burst tolerance in
-            # active chat rooms; retune based on Phase 11 load-test results.
-            "capacity": int(os.getenv("CHANNELS_LAYER_CAPACITY", "300")),
-            "expiry": int(os.getenv("CHANNELS_LAYER_EXPIRY", "60")),
-        },
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_CHANNELS_URL],
+                # Raised above the library default (100) for burst tolerance in
+                # active chat rooms; retune based on Phase 11 load-test results.
+                "capacity": int(os.getenv("CHANNELS_LAYER_CAPACITY", "300")),
+                "expiry": int(os.getenv("CHANNELS_LAYER_EXPIRY", "60")),
+            },
+        }
     }
-}
+    CELERY_BROKER_URL = REDIS_CELERY_URL
+    CELERY_RESULT_BACKEND = REDIS_CELERY_URL
+else:
+    # In-memory fallbacks: fine for a single-process smoke-test deploy, but
+    # cache/channel state isn't shared across processes and chat/typing
+    # events across processes are lost -- provision real Redis before scaling
+    # past one web process.
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+    CELERY_BROKER_URL = None
+    CELERY_RESULT_BACKEND = None
 
-CELERY_BROKER_URL = REDIS_CELERY_URL
-CELERY_RESULT_BACKEND = REDIS_CELERY_URL
-CELERY_TASK_ALWAYS_EAGER = env_config("CELERY_TASK_ALWAYS_EAGER", default=DEBUG, cast=bool)
+CELERY_TASK_ALWAYS_EAGER = env_config("CELERY_TASK_ALWAYS_EAGER", default=DEBUG, cast=bool) or not CELERY_ENABLED
 CELERY_BEAT_SCHEDULE = {
     "build-daily-match-suggestions": {
         "task": "apps.matches.tasks.build_daily_suggestions",
@@ -245,15 +264,18 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     "visibility_timeout": int(os.getenv("CELERY_VISIBILITY_TIMEOUT_SECONDS", "3600")),
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_CACHE_URL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
+if REDIS_ENABLED:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+        }
     }
-}
+else:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 CORS_ALLOWED_ORIGINS = [origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
 
 # Media: private S3 bucket, presigned direct-to-S3 uploads (client never
