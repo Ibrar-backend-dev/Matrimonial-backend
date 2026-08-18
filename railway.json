@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --workers 1",
+    "startCommand": "sh -c 'gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --workers 1'",
     "healthcheckPath": "/healthz/",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
