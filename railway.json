@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-1}",
+    "startCommand": "python manage.py migrate --noinput && echo MARKER_MIGRATE_DONE && python manage.py collectstatic --noinput && echo MARKER_COLLECTSTATIC_DONE && exec gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-1}",
     "healthcheckPath": "/healthz/",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
