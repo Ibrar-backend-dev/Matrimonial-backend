@@ -13,8 +13,8 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ("profile", "id", "is_primary", "privacy_level")
-    list_filter = ("privacy_level", "is_primary")
+    list_display = ("profile", "id", "privacy_level")
+    list_filter = ("privacy_level",)
     search_fields = ("profile__name",)
 
 

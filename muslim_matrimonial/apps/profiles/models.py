@@ -126,7 +126,6 @@ class Photo(models.Model):
     content_type = models.CharField(max_length=50, blank=True, null=True)
     width = models.PositiveIntegerField(blank=True, null=True)
     height = models.PositiveIntegerField(blank=True, null=True)
-    is_primary = models.BooleanField(default=False)
     privacy_level = models.CharField(max_length=20, choices=Profile.PHOTO_PRIVACY_CHOICES, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -141,8 +140,6 @@ class Photo(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-        if self.is_primary:
-            Photo.objects.filter(profile=self.profile, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
 
     def delete(self, *args, **kwargs):
 

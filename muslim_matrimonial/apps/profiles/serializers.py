@@ -16,7 +16,6 @@ class PhotoUploadRequestSerializer(serializers.Serializer):
     for the 2MB size / extension / file-signature checks."""
 
     file = serializers.FileField(validators=[validate_profile_photo])
-    is_primary = serializers.BooleanField(required=False, default=False)
     privacy_level = serializers.ChoiceField(choices=Profile.PHOTO_PRIVACY_CHOICES, required=False, allow_null=True)
 
     # --- Presigned S3 upload mode (disabled for now -- direct upload only) ---
@@ -33,7 +32,7 @@ class PhotoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Photo
-        fields = ("id", "url", "status", "is_primary", "privacy_level", "width", "height", "created_at")
+        fields = ("id", "url", "status", "privacy_level", "width", "height", "created_at")
         read_only_fields = ("id", "url", "status", "width", "height", "created_at")
 
     def get_url(self, instance):
@@ -84,7 +83,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         return calculate_age(obj.dob)
 
     def get_photos(self, obj):
-        photos = obj.photos.filter(status="ready")[:6]
+        photos = obj.photos.filter(status="ready")
         return PhotoSerializer(photos, many=True, context=self.context).data
 
     def get_is_complete(self, obj):

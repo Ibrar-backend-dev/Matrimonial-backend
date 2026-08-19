@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -62,6 +61,9 @@ class PhotoUploadRequestView(APIView):
     and written straight to quarantine storage; MEDIA_ROOT (project-root
     `media/` folder) is used automatically since no S3 bucket is configured
     locally. See core/media_storage.py.
+
+    A profile has a single photo: uploading a new one replaces the existing
+    one (the old Photo row and its stored file are deleted first).
     """
 
     throttle_classes = [AuthenticatedUserThrottle]
@@ -82,14 +84,13 @@ class PhotoUploadRequestView(APIView):
         #     owner_field="profile",
         #     owner=profile,
         #     user=request.user,
-        #     max_count=settings.MAX_PROFILE_GALLERY_PHOTOS,
+        #     max_count=1,
         #     key_prefix="profile_photos",
         #     content_type=data["content_type"],
         # )
-        # if data.get("is_primary") or data.get("privacy_level"):
-        #     photo.is_primary = data.get("is_primary", False)
+        # if data.get("privacy_level"):
         #     photo.privacy_level = data.get("privacy_level")
-        #     photo.save(update_fields=["is_primary", "privacy_level"])
+        #     photo.save(update_fields=["privacy_level"])
         #
         # return Response(
         #     {
@@ -100,8 +101,8 @@ class PhotoUploadRequestView(APIView):
         #     status=status.HTTP_201_CREATED,
         # )
 
-        if profile.photos.exclude(status="failed").count() >= settings.MAX_PROFILE_GALLERY_PHOTOS:
-            raise ValidationError(f"A gallery may contain a maximum of {settings.MAX_PROFILE_GALLERY_PHOTOS} photos.")
+        for existing in profile.photos.all():
+            existing.delete()
 
         file_obj = data["file"]
         file_obj.seek(0)
@@ -115,10 +116,9 @@ class PhotoUploadRequestView(APIView):
         )
         file_obj.seek(0)
         media_storage.put_object_bytes(storage_key, file_obj.read(), content_type)
-        if data.get("is_primary") or data.get("privacy_level"):
-            photo.is_primary = data.get("is_primary", False)
+        if data.get("privacy_level"):
             photo.privacy_level = data.get("privacy_level")
-            photo.save(update_fields=["is_primary", "privacy_level"])
+            photo.save(update_fields=["privacy_level"])
         validate_and_promote_photo.delay(str(photo.pk))
         return Response({"photo": PhotoSerializer(photo, context={"request": request}).data}, status=status.HTTP_201_CREATED)
 
@@ -142,7 +142,7 @@ class PhotoListView(generics.ListAPIView):
 
     def get_queryset(self):
         profile = get_object_or_404(Profile, user=self.request.user, is_deleted=False)
-        return profile.photos.exclude(status="failed").order_by("created_at")[:6]
+        return profile.photos.exclude(status="failed").order_by("created_at")
 
 
 class PhotoDeleteView(generics.DestroyAPIView):

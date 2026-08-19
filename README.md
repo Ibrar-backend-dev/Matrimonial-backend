@@ -37,7 +37,7 @@ config/
   celery.py           # Celery app, autodiscovers apps/*/tasks.py
 apps/
   users/              # auth: register, OTP verify/resend, login, refresh, logout, delete
-  profiles/           # profile, profile photo gallery, privacy settings, preferences
+  profiles/           # profile, single profile photo, privacy settings, preferences
   verifications/       # identity verification submission + admin review/update queue
   matches/            # suggestions, filtered search, match requests
   chat/               # WebSocket chat consumer + REST message history
@@ -171,7 +171,7 @@ All routes are mounted under `/api/` in `config/urls.py`.
 | Prefix | App | Notes |
 |---|---|---|
 | `/api/auth/` | `apps.users` | Registration, OTP verify/resend, login/refresh/logout, forgot password, account deletion |
-| `/api/profile/` | `apps.profiles` | Profile CRUD, two-step presigned photo upload (max 6 photos, 2MB each, JPEG/PNG/WEBP), privacy settings, partner preferences |
+| `/api/profile/` | `apps.profiles` | Profile CRUD, two-step presigned photo upload (single profile photo, replaced on re-upload, 2MB max, JPEG/PNG/WEBP), privacy settings, partner preferences |
 | `/api/verifications/` | `apps.verifications` | Submit identity verification (faith declaration, document URL); `admin/pending` (filterable/paginated) and `admin/<pk>` (`PATCH`) for staff review |
 | `/api/admin/verifications/pending` | `apps.verifications` | Same staff-only pending queue, mounted directly at the root for convenience |
 | `/api/matches/` | `apps.matches` | Daily suggestions, filtered search, send/respond to match requests |
@@ -193,14 +193,16 @@ creation (`apps/matches/services.py`).
 
 ### Photo uploads
 
-Both profile photos (`apps.profiles`) and personal gallery photos
+Both the single profile photo (`apps.profiles`) and personal gallery photos
 (`apps.gallery`) use the same two-step, direct-to-S3 flow
 (`core/media_uploads.py`, `core/media_storage.py`):
 
-1. `POST .../upload` (or `.../photos/upload`) reserves a gallery slot and
-   returns a presigned S3 `POST` (url + fields). The slot count check and
-   reservation happen atomically under a row lock on the user, so two
-   concurrent presign requests can't both squeeze past the 6-photo cap.
+1. `POST .../upload` (or `.../photos/upload`) reserves a slot and returns a
+   presigned S3 `POST` (url + fields). For the profile photo this replaces
+   any existing photo (a profile only ever has one); for the personal
+   gallery the slot count check and reservation happen atomically under a
+   row lock on the user, so two concurrent presign requests can't both
+   squeeze past the 6-photo cap.
 2. The client uploads the file bytes directly to S3 with those fields — the
    bytes never pass through Django.
 3. `POST .../<pk>/finalize` confirms the object landed in S3, then queues a

@@ -245,7 +245,6 @@
       "url": "{{ base_url }}/api/profile/upload-photo",
       "body": { "mimeType": "multipart/form-data", "params": [
         { "name": "file", "value": "", "type": "file", "fileName": "" },
-        { "name": "is_primary", "value": "true" },
         { "name": "privacy_level", "value": "visible" }
       ] },
       "headers": [],
@@ -322,7 +321,6 @@
       "url": "{{ base_url }}/api/profile/upload-photo",
       "body": { "mimeType": "multipart/form-data", "params": [
         { "name": "file", "value": "", "type": "file", "fileName": "" },
-        { "name": "is_primary", "value": "true" },
         { "name": "privacy_level", "value": "visible" }
       ] },
       "headers": [],

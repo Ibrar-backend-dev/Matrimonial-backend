@@ -147,20 +147,18 @@ class PhotoUploadFlowTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Photo.objects.count(), 0)
 
-    def test_gallery_cap_of_six_enforced(self):
+    def test_uploading_new_photo_replaces_previous(self):
         with patch("apps.profiles.views.validate_and_promote_photo.delay"):
-            for i in range(6):
-                response = self._upload(f"{i}.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
-                self.assertEqual(response.status_code, 201)
-            seventh = self._upload("seventh.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
-        self.assertEqual(seventh.status_code, 400)
-        self.assertEqual(Photo.objects.count(), 6)
+            first = self._upload("first.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
+            self.assertEqual(first.status_code, 201)
+            first_id = first.data["photo"]["id"]
 
-    def test_is_primary_single_primary_enforced(self):
-        with patch("apps.profiles.views.validate_and_promote_photo.delay"):
-            self._upload("first.jpg", make_image_bytes("JPEG"), content_type="image/jpeg", is_primary=True)
-            second = self._upload("second.jpg", make_image_bytes("JPEG"), content_type="image/jpeg", is_primary=True)
+            with patch("apps.profiles.models.delete_photo_object") as mock_delete_task:
+                second = self._upload("second.jpg", make_image_bytes("JPEG"), content_type="image/jpeg")
+
         self.assertEqual(second.status_code, 201)
-        photos = list(Photo.objects.filter(profile=self.profile))
-        primaries = [p for p in photos if p.is_primary]
-        self.assertEqual(len(primaries), 1)
+        self.assertEqual(Photo.objects.filter(profile=self.profile).count(), 1)
+        self.assertFalse(Photo.objects.filter(pk=first_id).exists())
+        remaining = Photo.objects.get(profile=self.profile)
+        self.assertNotEqual(remaining.pk, first_id)
+        mock_delete_task.delay.assert_called_once()
