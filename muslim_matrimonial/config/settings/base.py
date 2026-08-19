@@ -297,7 +297,10 @@ AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
 # Local development uses MEDIA_ROOT storage when AWS_STORAGE_BUCKET_NAME is
 # unset. Set AWS_STORAGE_BUCKET_NAME to enable S3-backed photo storage.
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
-AWS_S3_QUARANTINE_PREFIX = os.getenv("AWS_S3_QUARANTINE_PREFIX", "quarantine")
+# Set for any S3-compatible provider that isn't AWS itself (e.g. Backblaze B2:
+# https://s3.<region>.backblazeb2.com). Left unset, boto3 talks to real AWS S3.
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "")
+AWS_S3_QUARANTINE_PREFIX = os.getenv("AWS_S3_QUARANTINE_PREFIX", "quarantine") or "quarantine"
 CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN", "")
 CLOUDFRONT_KEY_PAIR_ID = os.getenv("CLOUDFRONT_KEY_PAIR_ID", "")
 CLOUDFRONT_PRIVATE_KEY = os.getenv("CLOUDFRONT_PRIVATE_KEY", "")

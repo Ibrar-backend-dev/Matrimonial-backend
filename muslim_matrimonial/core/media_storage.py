@@ -28,7 +28,11 @@ def extension_for(content_type):
 def _s3_client():
     if not _using_s3():
         raise RuntimeError("AWS_STORAGE_BUCKET_NAME is not configured.")
-    return boto3.client("s3", region_name=settings.AWS_S3_REGION_NAME)
+    return boto3.client(
+        "s3",
+        region_name=settings.AWS_S3_REGION_NAME,
+        endpoint_url=settings.AWS_S3_ENDPOINT_URL or None,
+    )
 
 
 def quarantine_key(prefix, owner_id, content_type):

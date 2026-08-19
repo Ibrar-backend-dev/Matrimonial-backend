@@ -49,3 +49,20 @@ class VerificationAdminAPITest(APITestCase):
         self.assertTrue(verification.selfie_verified)
         self.assertEqual(verification.visit_status, "done")
         self.assertEqual(verification.verified_by, self.admin)
+
+    def test_pending_list_includes_verification_without_doc_url(self):
+        User = get_user_model()
+        no_doc_user = User.objects.create_user(
+            email="no-doc@example.com",
+            password="password123",
+            is_active=True,
+            status="active",
+        )
+        Verification.objects.create(user=no_doc_user, visit_status="pending")
+
+        url = reverse("pending-verifications")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        emails = {row["user_email"] for row in response.data["results"]}
+        self.assertIn("no-doc@example.com", emails)
+        self.assertEqual(len(response.data["results"]), 2)

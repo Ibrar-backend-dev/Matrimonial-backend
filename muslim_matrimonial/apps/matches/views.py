@@ -14,7 +14,7 @@ from core.throttles import AuthenticatedUserThrottle
 
 from .models import MatchRequest
 from .serializers import MatchFilterSerializer, MatchRequestSerializer, MatchResponseSerializer
-from .services import eligible_profiles, get_daily_suggestions, is_profile_visible_to
+from .services import eligible_profiles, get_daily_suggestions, is_profile_visible_to, require_viewer_context
 
 
 class SuggestionListView(generics.GenericAPIView):
@@ -23,6 +23,7 @@ class SuggestionListView(generics.GenericAPIView):
     throttle_scope = "match"
 
     def get(self, request):
+        require_viewer_context(request.user)
         suggestions = get_daily_suggestions(request.user)
         return Response(ProfileSerializer(suggestions, many=True, context={"request": request}).data)
 
@@ -33,6 +34,7 @@ class MatchFilterView(generics.GenericAPIView):
     throttle_scope = "match"
 
     def post(self, request):
+        require_viewer_context(request.user)
         filters = MatchFilterSerializer(data=request.data, context={"request": request})
         filters.is_valid(raise_exception=True)
         queryset = eligible_profiles(request.user, filters.validated_data)
@@ -48,6 +50,7 @@ class MatchRequestCreateView(generics.GenericAPIView):
     throttle_scope = "match"
 
     def post(self, request, user_id):
+        require_viewer_context(request.user)
         receiver = get_object_or_404(User, pk=user_id, is_active=True, status="active")
         if receiver == request.user:
             raise ValidationError("A user cannot send a match request to themselves.")

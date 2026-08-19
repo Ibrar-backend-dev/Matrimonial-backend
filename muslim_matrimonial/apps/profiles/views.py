@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -5,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core import media_storage
-from core.media_uploads import finalize_upload  # reserve_upload_slot -- only needed by the presigned-upload mode below
+from core.media_uploads import finalize_upload, reserve_upload_slot
 from core.permissions import IsAdminOrOwner
 from core.throttles import AuthenticatedUserThrottle
 
@@ -56,11 +57,10 @@ class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PhotoUploadRequestView(APIView):
-    """Direct file upload, for local-dev/testing. The file is validated
-    (2MB max, extension + signature check -- see PhotoUploadRequestSerializer)
-    and written straight to quarantine storage; MEDIA_ROOT (project-root
-    `media/` folder) is used automatically since no S3 bucket is configured
-    locally. See core/media_storage.py.
+    """Step 1 of the presigned-upload flow: reserve a quarantine slot and
+    return a presigned POST the client uploads the file bytes to directly
+    (B2/S3 never sees Django in the data path). See core/media_uploads.py
+    and core/media_storage.py.
 
     A profile has a single photo: uploading a new one replaces the existing
     one (the old Photo row and its stored file are deleted first).
@@ -75,52 +75,30 @@ class PhotoUploadRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        # --- Presigned S3 upload mode (disabled for now -- direct upload only) ---
-        # if data.get("file"):
-        #     ... (same direct-upload branch as below) ...
-        #
-        # photo, post = reserve_upload_slot(
-        #     model=Photo,
-        #     owner_field="profile",
-        #     owner=profile,
-        #     user=request.user,
-        #     max_count=1,
-        #     key_prefix="profile_photos",
-        #     content_type=data["content_type"],
-        # )
-        # if data.get("privacy_level"):
-        #     photo.privacy_level = data.get("privacy_level")
-        #     photo.save(update_fields=["privacy_level"])
-        #
-        # return Response(
-        #     {
-        #         "photo": PhotoSerializer(photo, context={"request": request}).data,
-        #         "upload_url": post["url"],
-        #         "upload_fields": post["fields"],
-        #     },
-        #     status=status.HTTP_201_CREATED,
-        # )
-
         for existing in profile.photos.all():
             existing.delete()
 
-        file_obj = data["file"]
-        file_obj.seek(0)
-        content_type = file_obj.content_type
-        storage_key = media_storage.quarantine_key("profile_photos", request.user.pk, content_type)
-        photo = Photo.objects.create(
-            profile=profile,
-            storage_key=storage_key,
-            content_type=content_type,
-            file=file_obj,
+        photo, post = reserve_upload_slot(
+            model=Photo,
+            owner_field="profile",
+            owner=profile,
+            user=request.user,
+            max_count=1,
+            key_prefix="profile_photos",
+            content_type=data["content_type"],
         )
-        file_obj.seek(0)
-        media_storage.put_object_bytes(storage_key, file_obj.read(), content_type)
         if data.get("privacy_level"):
             photo.privacy_level = data.get("privacy_level")
             photo.save(update_fields=["privacy_level"])
-        validate_and_promote_photo.delay(str(photo.pk))
-        return Response({"photo": PhotoSerializer(photo, context={"request": request}).data}, status=status.HTTP_201_CREATED)
+
+        return Response(
+            {
+                "photo": PhotoSerializer(photo, context={"request": request}).data,
+                "upload_url": post["url"],
+                "upload_fields": post["fields"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class PhotoFinalizeView(APIView):
@@ -137,6 +115,23 @@ class PhotoFinalizeView(APIView):
         return Response(PhotoSerializer(photo, context={"request": request}).data)
 
 
+class PhotoReissueUploadUrlView(APIView):
+    """Mint a fresh presigned POST for a still-pending upload -- covers a
+    client whose original URL expired or whose direct-to-B2 upload failed,
+    without waiting for the 24h abandoned-upload sweep to clear the slot."""
+
+    throttle_classes = [AuthenticatedUserThrottle]
+    throttle_scope = "profile"
+
+    def post(self, request, pk):
+        profile = get_object_or_404(Profile, user=request.user, is_deleted=False)
+        photo = get_object_or_404(Photo, pk=pk, profile=profile)
+        if photo.status != "pending":
+            raise ValidationError("This upload has already been finalized.")
+        post = media_storage.create_presigned_post(photo.storage_key, photo.content_type, settings.MEDIA_UPLOAD_MAX_BYTES)
+        return Response({"upload_url": post["url"], "upload_fields": post["fields"]})
+
+
 class PhotoListView(generics.ListAPIView):
     serializer_class = PhotoSerializer
 
@@ -151,6 +146,11 @@ class PhotoDeleteView(generics.DestroyAPIView):
     queryset = Photo.objects.all()
     throttle_classes = [AuthenticatedUserThrottle]
     throttle_scope = "profile"
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"detail": "Photo deleted."}, status=status.HTTP_200_OK)
 
 
 class PrivacySettingsView(generics.GenericAPIView):

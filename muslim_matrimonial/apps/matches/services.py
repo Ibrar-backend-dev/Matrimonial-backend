@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.db.models import Q
+from rest_framework.exceptions import ValidationError
 
 from apps.profiles.models import Profile
 from core.utils import calculate_age, years_ago
@@ -12,6 +13,15 @@ def _viewer_context(user):
         return user.profile, user.preference
     except (Profile.DoesNotExist, AttributeError):
         return None, None
+
+
+def require_viewer_context(user):
+    """Raise a clear 400 instead of letting callers silently get back an
+    empty/rejected result when the viewer hasn't set up matching yet."""
+    viewer_profile, preference = _viewer_context(user)
+    if not viewer_profile or not preference:
+        raise ValidationError("Set your match preferences before viewing or requesting matches.")
+    return viewer_profile, preference
 
 
 def _reciprocal_filters(viewer_profile):

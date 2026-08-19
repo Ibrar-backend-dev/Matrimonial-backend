@@ -50,9 +50,6 @@ class PendingVerificationListView(generics.ListAPIView):
         if user_email:
             queryset = queryset.filter(user__email__icontains=user_email)
 
-        if status == "pending" and selfie_verified is None and has_doc_url is None and not user_email:
-            queryset = queryset.filter(selfie_verified=False).exclude(doc_url__isnull=True)
-
         return queryset.order_by("-updated_at")
 
 

@@ -61,3 +61,35 @@ class ReciprocalProfileVisibilityTests(TestCase):
         incompatible = client.post(f"/api/matches/request/{self.not_interested.pk}", format="json")
         self.assertEqual(compatible.status_code, 201)
         self.assertEqual(incompatible.status_code, 400)
+
+    def test_endpoints_reject_viewer_missing_preferences_with_clear_error(self):
+        """Regression test: a viewer who never called PUT /api/profile/preferences
+        used to get a silent empty/rejected result from suggestions, filter, and
+        match-request instead of an explanatory error."""
+        no_preference_user = User.objects.create_user(
+            email="no-preference@example.com",
+            password="StrongPass123!",
+            phone="+920000000005",
+            otp_verified=True,
+        )
+        Profile.objects.create(
+            user=no_preference_user,
+            name="No Preference",
+            gender="male",
+            dob=date(1995, 1, 1),
+            city="Lahore",
+            country="Pakistan",
+            sect_maslak="sunni",
+            education="Bachelors",
+            marital_status="never_married",
+            is_muslim_confirmed=True,
+        )
+        client = APIClient()
+        client.force_authenticate(no_preference_user)
+
+        suggestions = client.get("/api/matches/suggestions")
+        filtered = client.post("/api/matches/filter", {}, format="json")
+        requested = client.post(f"/api/matches/request/{self.compatible.pk}", format="json")
+
+        for response in (suggestions, filtered, requested):
+            self.assertEqual(response.status_code, 400)
