@@ -210,6 +210,10 @@ Both the single profile photo (`apps.profiles`) and personal gallery photos
    that checks the file signature, decodes it, strips EXIF metadata,
    re-encodes it to WEBP, and promotes it out of the quarantine prefix.
 
+If the presigned URL from step 1 expires or the direct upload fails before
+finalize, `POST .../<pk>/reissue-upload-url` mints a fresh one for the same
+still-`pending` slot rather than waiting for the abandoned-upload sweep.
+
 Uploads that are never finalized (or fail validation) are removed by hourly
 sweep tasks (`sweep_abandoned_photo_uploads`, `sweep_abandoned_personal_photo_uploads`).
 All photo reads go through short-lived signed delivery URLs

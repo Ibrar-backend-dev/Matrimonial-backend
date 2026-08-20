@@ -44,14 +44,25 @@
         "match_id": "",
         "message_id": "",
         "verification_id": "",
-        "gallery_photo_id": ""
+        "gallery_photo_id": "",
+
+        "upload_url": "",
+        "upload_field_key": "",
+        "upload_field_policy": "",
+        "upload_field_x_amz_algorithm": "",
+        "upload_field_x_amz_credential": "",
+        "upload_field_x_amz_date": "",
+        "upload_field_x_amz_signature": "",
+        "upload_field_content_type": ""
       },
       "dataPropertyOrder": {
         "&": [
           "base_url", "ws_base_url",
           "email_a", "password_a", "new_password_a", "otp_a", "access_token_a", "refresh_token_a", "user_id_a", "profile_id_a", "photo_id_a",
           "email_b", "password_b", "new_password_b", "otp_b", "access_token_b", "refresh_token_b", "user_id_b", "profile_id_b", "photo_id_b",
-          "match_id", "message_id", "verification_id", "gallery_photo_id"
+          "match_id", "message_id", "verification_id", "gallery_photo_id",
+          "upload_url", "upload_field_key", "upload_field_policy", "upload_field_x_amz_algorithm",
+          "upload_field_x_amz_credential", "upload_field_x_amz_date", "upload_field_x_amz_signature", "upload_field_content_type"
         ]
       },
       "color": null,
@@ -241,16 +252,30 @@
       "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
       "metaSortKey": 6000 },
 
-    { "_id": "req_upload_photo_a", "_type": "request", "parentId": "fld_profile_a", "name": "Upload Profile Photo (multipart)", "method": "POST",
+    { "_id": "req_upload_photo_a", "_type": "request", "parentId": "fld_profile_a", "name": "1. Request Profile Photo Upload Slot", "method": "POST",
       "url": "{{ base_url }}/api/profile/upload-photo",
+      "body": { "mimeType": "application/json", "text": "{\n  \"content_type\": \"image/jpeg\",\n  \"privacy_level\": \"visible\"\n}" },
+      "headers": [ { "name": "Content-Type", "value": "application/json" } ],
+      "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
+      "afterResponseScript": "if (insomnia.response.code === 200 || insomnia.response.code === 201) {\n  const body = insomnia.response.json();\n  if (body.photo && body.photo.id) insomnia.environment.set('photo_id_a', body.photo.id);\n  if (body.upload_url) insomnia.environment.set('upload_url', body.upload_url);\n  const f = body.upload_fields || {};\n  insomnia.environment.set('upload_field_key', f.key || '');\n  insomnia.environment.set('upload_field_policy', f.policy || '');\n  insomnia.environment.set('upload_field_x_amz_algorithm', f['x-amz-algorithm'] || '');\n  insomnia.environment.set('upload_field_x_amz_credential', f['x-amz-credential'] || '');\n  insomnia.environment.set('upload_field_x_amz_date', f['x-amz-date'] || '');\n  insomnia.environment.set('upload_field_x_amz_signature', f['x-amz-signature'] || '');\n  insomnia.environment.set('upload_field_content_type', f['Content-Type'] || '');\n}",
+      "metaSortKey": 7000 },
+
+    { "_id": "req_upload_photo_to_b2_a", "_type": "request", "parentId": "fld_profile_a", "name": "2. Upload Photo Bytes to B2 (direct, no auth)", "method": "POST",
+      "url": "{{ upload_url }}",
       "body": { "mimeType": "multipart/form-data", "params": [
-        { "name": "file", "value": "", "type": "file", "fileName": "" },
-        { "name": "privacy_level", "value": "visible" }
+        { "name": "Content-Type", "value": "{{ upload_field_content_type }}" },
+        { "name": "key", "value": "{{ upload_field_key }}" },
+        { "name": "x-amz-algorithm", "value": "{{ upload_field_x_amz_algorithm }}" },
+        { "name": "x-amz-credential", "value": "{{ upload_field_x_amz_credential }}" },
+        { "name": "x-amz-date", "value": "{{ upload_field_x_amz_date }}" },
+        { "name": "policy", "value": "{{ upload_field_policy }}" },
+        { "name": "x-amz-signature", "value": "{{ upload_field_x_amz_signature }}" },
+        { "name": "file", "value": "", "type": "file", "fileName": "", "description": "Pick a real image file here -- must match the content_type set on step 1. `file` must stay last (S3/B2 ignores POST fields after it)." }
       ] },
       "headers": [],
-      "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
-      "afterResponseScript": "if (insomnia.response.code === 200 || insomnia.response.code === 201) {\n  const body = insomnia.response.json();\n  if (body.photo && body.photo.id) insomnia.environment.set('photo_id_a', body.photo.id);\n}",
-      "metaSortKey": 7000 },
+      "authentication": { "type": "none" },
+      "description": "Run right after step 1 (shared upload_* env vars are scratch space, overwritten by whichever upload-request ran most recently). No JWT here -- this goes straight to B2 using the presigned policy fields.",
+      "metaSortKey": 7500 },
 
     { "_id": "req_list_photos_a", "_type": "request", "parentId": "fld_profile_a", "name": "List Profile Photos", "method": "GET",
       "url": "{{ base_url }}/api/profile/photos",
@@ -258,11 +283,18 @@
       "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
       "metaSortKey": 8000 },
 
-    { "_id": "req_finalize_photo_a", "_type": "request", "parentId": "fld_profile_a", "name": "Finalize Profile Photo", "method": "POST",
+    { "_id": "req_finalize_photo_a", "_type": "request", "parentId": "fld_profile_a", "name": "3. Finalize Profile Photo", "method": "POST",
       "url": "{{ base_url }}/api/profile/photos/{{ photo_id_a }}/finalize",
       "body": {}, "headers": [],
       "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
       "metaSortKey": 9000 },
+
+    { "_id": "req_reissue_photo_upload_url_a", "_type": "request", "parentId": "fld_profile_a", "name": "Reissue Photo Upload URL (if step 2 expired/failed)", "method": "POST",
+      "url": "{{ base_url }}/api/profile/photos/{{ photo_id_a }}/reissue-upload-url",
+      "body": {}, "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
+      "afterResponseScript": "if (insomnia.response.code === 200) {\n  const body = insomnia.response.json();\n  if (body.upload_url) insomnia.environment.set('upload_url', body.upload_url);\n  const f = body.upload_fields || {};\n  insomnia.environment.set('upload_field_key', f.key || '');\n  insomnia.environment.set('upload_field_policy', f.policy || '');\n  insomnia.environment.set('upload_field_x_amz_algorithm', f['x-amz-algorithm'] || '');\n  insomnia.environment.set('upload_field_x_amz_credential', f['x-amz-credential'] || '');\n  insomnia.environment.set('upload_field_x_amz_date', f['x-amz-date'] || '');\n  insomnia.environment.set('upload_field_x_amz_signature', f['x-amz-signature'] || '');\n  insomnia.environment.set('upload_field_content_type', f['Content-Type'] || '');\n}",
+      "metaSortKey": 9500 },
 
     { "_id": "req_delete_photo_a", "_type": "request", "parentId": "fld_profile_a", "name": "Delete Profile Photo", "method": "DELETE",
       "url": "{{ base_url }}/api/profile/photos/{{ photo_id_a }}",
@@ -317,16 +349,30 @@
       "authentication": { "type": "bearer", "token": "{{ access_token_b }}", "prefix": "Bearer" },
       "metaSortKey": 6000 },
 
-    { "_id": "req_upload_photo_b", "_type": "request", "parentId": "fld_profile_b", "name": "Upload Profile Photo (multipart)", "method": "POST",
+    { "_id": "req_upload_photo_b", "_type": "request", "parentId": "fld_profile_b", "name": "1. Request Profile Photo Upload Slot", "method": "POST",
       "url": "{{ base_url }}/api/profile/upload-photo",
+      "body": { "mimeType": "application/json", "text": "{\n  \"content_type\": \"image/jpeg\",\n  \"privacy_level\": \"visible\"\n}" },
+      "headers": [ { "name": "Content-Type", "value": "application/json" } ],
+      "authentication": { "type": "bearer", "token": "{{ access_token_b }}", "prefix": "Bearer" },
+      "afterResponseScript": "if (insomnia.response.code === 200 || insomnia.response.code === 201) {\n  const body = insomnia.response.json();\n  if (body.photo && body.photo.id) insomnia.environment.set('photo_id_b', body.photo.id);\n  if (body.upload_url) insomnia.environment.set('upload_url', body.upload_url);\n  const f = body.upload_fields || {};\n  insomnia.environment.set('upload_field_key', f.key || '');\n  insomnia.environment.set('upload_field_policy', f.policy || '');\n  insomnia.environment.set('upload_field_x_amz_algorithm', f['x-amz-algorithm'] || '');\n  insomnia.environment.set('upload_field_x_amz_credential', f['x-amz-credential'] || '');\n  insomnia.environment.set('upload_field_x_amz_date', f['x-amz-date'] || '');\n  insomnia.environment.set('upload_field_x_amz_signature', f['x-amz-signature'] || '');\n  insomnia.environment.set('upload_field_content_type', f['Content-Type'] || '');\n}",
+      "metaSortKey": 7000 },
+
+    { "_id": "req_upload_photo_to_b2_b", "_type": "request", "parentId": "fld_profile_b", "name": "2. Upload Photo Bytes to B2 (direct, no auth)", "method": "POST",
+      "url": "{{ upload_url }}",
       "body": { "mimeType": "multipart/form-data", "params": [
-        { "name": "file", "value": "", "type": "file", "fileName": "" },
-        { "name": "privacy_level", "value": "visible" }
+        { "name": "Content-Type", "value": "{{ upload_field_content_type }}" },
+        { "name": "key", "value": "{{ upload_field_key }}" },
+        { "name": "x-amz-algorithm", "value": "{{ upload_field_x_amz_algorithm }}" },
+        { "name": "x-amz-credential", "value": "{{ upload_field_x_amz_credential }}" },
+        { "name": "x-amz-date", "value": "{{ upload_field_x_amz_date }}" },
+        { "name": "policy", "value": "{{ upload_field_policy }}" },
+        { "name": "x-amz-signature", "value": "{{ upload_field_x_amz_signature }}" },
+        { "name": "file", "value": "", "type": "file", "fileName": "", "description": "Pick a real image file here -- must match the content_type set on step 1. `file` must stay last (S3/B2 ignores POST fields after it)." }
       ] },
       "headers": [],
-      "authentication": { "type": "bearer", "token": "{{ access_token_b }}", "prefix": "Bearer" },
-      "afterResponseScript": "if (insomnia.response.code === 200 || insomnia.response.code === 201) {\n  const body = insomnia.response.json();\n  if (body.photo && body.photo.id) insomnia.environment.set('photo_id_b', body.photo.id);\n}",
-      "metaSortKey": 7000 },
+      "authentication": { "type": "none" },
+      "description": "Run right after step 1 (shared upload_* env vars are scratch space, overwritten by whichever upload-request ran most recently). No JWT here -- this goes straight to B2 using the presigned policy fields.",
+      "metaSortKey": 7500 },
 
     { "_id": "req_list_photos_b", "_type": "request", "parentId": "fld_profile_b", "name": "List Profile Photos", "method": "GET",
       "url": "{{ base_url }}/api/profile/photos",
@@ -334,11 +380,18 @@
       "authentication": { "type": "bearer", "token": "{{ access_token_b }}", "prefix": "Bearer" },
       "metaSortKey": 8000 },
 
-    { "_id": "req_finalize_photo_b", "_type": "request", "parentId": "fld_profile_b", "name": "Finalize Profile Photo", "method": "POST",
+    { "_id": "req_finalize_photo_b", "_type": "request", "parentId": "fld_profile_b", "name": "3. Finalize Profile Photo", "method": "POST",
       "url": "{{ base_url }}/api/profile/photos/{{ photo_id_b }}/finalize",
       "body": {}, "headers": [],
       "authentication": { "type": "bearer", "token": "{{ access_token_b }}", "prefix": "Bearer" },
       "metaSortKey": 9000 },
+
+    { "_id": "req_reissue_photo_upload_url_b", "_type": "request", "parentId": "fld_profile_b", "name": "Reissue Photo Upload URL (if step 2 expired/failed)", "method": "POST",
+      "url": "{{ base_url }}/api/profile/photos/{{ photo_id_b }}/reissue-upload-url",
+      "body": {}, "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ access_token_b }}", "prefix": "Bearer" },
+      "afterResponseScript": "if (insomnia.response.code === 200) {\n  const body = insomnia.response.json();\n  if (body.upload_url) insomnia.environment.set('upload_url', body.upload_url);\n  const f = body.upload_fields || {};\n  insomnia.environment.set('upload_field_key', f.key || '');\n  insomnia.environment.set('upload_field_policy', f.policy || '');\n  insomnia.environment.set('upload_field_x_amz_algorithm', f['x-amz-algorithm'] || '');\n  insomnia.environment.set('upload_field_x_amz_credential', f['x-amz-credential'] || '');\n  insomnia.environment.set('upload_field_x_amz_date', f['x-amz-date'] || '');\n  insomnia.environment.set('upload_field_x_amz_signature', f['x-amz-signature'] || '');\n  insomnia.environment.set('upload_field_content_type', f['Content-Type'] || '');\n}",
+      "metaSortKey": 9500 },
 
     { "_id": "req_delete_photo_b", "_type": "request", "parentId": "fld_profile_b", "name": "Delete Profile Photo", "method": "DELETE",
       "url": "{{ base_url }}/api/profile/photos/{{ photo_id_b }}",
@@ -420,23 +473,43 @@
       "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
       "metaSortKey": 1000 },
 
-    { "_id": "req_upload_gallery_photo", "_type": "request", "parentId": "fld_gallery", "name": "Upload Gallery Photo (multipart, as User A)", "method": "POST",
+    { "_id": "req_upload_gallery_photo", "_type": "request", "parentId": "fld_gallery", "name": "1. Request Gallery Photo Upload Slot (as User A)", "method": "POST",
       "url": "{{ base_url }}/api/gallery/photos/upload",
-      "body": { "mimeType": "multipart/form-data", "params": [
-        { "name": "file", "value": "", "type": "file", "fileName": "" },
-        { "name": "caption", "value": "Test gallery photo" },
-        { "name": "display_order", "value": "0" }
-      ] },
-      "headers": [],
+      "body": { "mimeType": "application/json", "text": "{\n  \"content_type\": \"image/jpeg\",\n  \"caption\": \"Test gallery photo\",\n  \"display_order\": 0\n}" },
+      "headers": [ { "name": "Content-Type", "value": "application/json" } ],
       "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
-      "afterResponseScript": "if (insomnia.response.code === 200 || insomnia.response.code === 201) {\n  const body = insomnia.response.json();\n  if (body.photo && body.photo.id) insomnia.environment.set('gallery_photo_id', body.photo.id);\n}",
+      "afterResponseScript": "if (insomnia.response.code === 200 || insomnia.response.code === 201) {\n  const body = insomnia.response.json();\n  if (body.photo && body.photo.id) insomnia.environment.set('gallery_photo_id', body.photo.id);\n  if (body.upload_url) insomnia.environment.set('upload_url', body.upload_url);\n  const f = body.upload_fields || {};\n  insomnia.environment.set('upload_field_key', f.key || '');\n  insomnia.environment.set('upload_field_policy', f.policy || '');\n  insomnia.environment.set('upload_field_x_amz_algorithm', f['x-amz-algorithm'] || '');\n  insomnia.environment.set('upload_field_x_amz_credential', f['x-amz-credential'] || '');\n  insomnia.environment.set('upload_field_x_amz_date', f['x-amz-date'] || '');\n  insomnia.environment.set('upload_field_x_amz_signature', f['x-amz-signature'] || '');\n  insomnia.environment.set('upload_field_content_type', f['Content-Type'] || '');\n}",
       "metaSortKey": 2000 },
 
-    { "_id": "req_finalize_gallery_photo", "_type": "request", "parentId": "fld_gallery", "name": "Finalize Gallery Photo (as User A)", "method": "POST",
+    { "_id": "req_upload_gallery_photo_to_b2", "_type": "request", "parentId": "fld_gallery", "name": "2. Upload Gallery Photo Bytes to B2 (direct, no auth)", "method": "POST",
+      "url": "{{ upload_url }}",
+      "body": { "mimeType": "multipart/form-data", "params": [
+        { "name": "Content-Type", "value": "{{ upload_field_content_type }}" },
+        { "name": "key", "value": "{{ upload_field_key }}" },
+        { "name": "x-amz-algorithm", "value": "{{ upload_field_x_amz_algorithm }}" },
+        { "name": "x-amz-credential", "value": "{{ upload_field_x_amz_credential }}" },
+        { "name": "x-amz-date", "value": "{{ upload_field_x_amz_date }}" },
+        { "name": "policy", "value": "{{ upload_field_policy }}" },
+        { "name": "x-amz-signature", "value": "{{ upload_field_x_amz_signature }}" },
+        { "name": "file", "value": "", "type": "file", "fileName": "", "description": "Pick a real image file here -- must match the content_type set on step 1. `file` must stay last (S3/B2 ignores POST fields after it)." }
+      ] },
+      "headers": [],
+      "authentication": { "type": "none" },
+      "description": "Run right after step 1 (shared upload_* env vars are scratch space, overwritten by whichever upload-request ran most recently). No JWT here -- this goes straight to B2 using the presigned policy fields.",
+      "metaSortKey": 2500 },
+
+    { "_id": "req_finalize_gallery_photo", "_type": "request", "parentId": "fld_gallery", "name": "3. Finalize Gallery Photo (as User A)", "method": "POST",
       "url": "{{ base_url }}/api/gallery/photos/{{ gallery_photo_id }}/finalize",
       "body": {}, "headers": [],
       "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
       "metaSortKey": 3000 },
+
+    { "_id": "req_reissue_gallery_photo_upload_url", "_type": "request", "parentId": "fld_gallery", "name": "Reissue Gallery Photo Upload URL (if step 2 expired/failed)", "method": "POST",
+      "url": "{{ base_url }}/api/gallery/photos/{{ gallery_photo_id }}/reissue-upload-url",
+      "body": {}, "headers": [],
+      "authentication": { "type": "bearer", "token": "{{ access_token_a }}", "prefix": "Bearer" },
+      "afterResponseScript": "if (insomnia.response.code === 200) {\n  const body = insomnia.response.json();\n  if (body.upload_url) insomnia.environment.set('upload_url', body.upload_url);\n  const f = body.upload_fields || {};\n  insomnia.environment.set('upload_field_key', f.key || '');\n  insomnia.environment.set('upload_field_policy', f.policy || '');\n  insomnia.environment.set('upload_field_x_amz_algorithm', f['x-amz-algorithm'] || '');\n  insomnia.environment.set('upload_field_x_amz_credential', f['x-amz-credential'] || '');\n  insomnia.environment.set('upload_field_x_amz_date', f['x-amz-date'] || '');\n  insomnia.environment.set('upload_field_x_amz_signature', f['x-amz-signature'] || '');\n  insomnia.environment.set('upload_field_content_type', f['Content-Type'] || '');\n}",
+      "metaSortKey": 3500 },
 
     { "_id": "req_get_gallery_photo", "_type": "request", "parentId": "fld_gallery", "name": "Get Gallery Photo Detail (as User A)", "method": "GET",
       "url": "{{ base_url }}/api/gallery/photos/{{ gallery_photo_id }}",
