@@ -324,9 +324,12 @@ and Redis vars too; it doesn't need `DJANGO_ALLOWED_HOSTS`/CORS/email vars
 unless a task sends email, which `send_otp` does):
 
 ```
-DJANGO_SETTINGS_MODULE=config.settings.production
+# DJANGO_SETTINGS_MODULE is baked into the image (see Dockerfile) -- set it
+# here only to override, e.g. config.settings.base for a debug deploy.
 DJANGO_SECRET_KEY=<generate one>
-DJANGO_ALLOWED_HOSTS=${{RAILWAY_PUBLIC_DOMAIN}}
+# DJANGO_ALLOWED_HOSTS is optional: config/settings/base.py already appends
+# ${{RAILWAY_PUBLIC_DOMAIN}} and healthcheck.railway.app. Set it only to add a
+# custom domain, and keep the Railway domain in the list when you do.
 CORS_ALLOWED_ORIGINS=                     # native Android client doesn't need CORS; add web-frontend origins here if one exists
 
 POSTGRES_DB=${{Postgres.PGDATABASE}}
@@ -381,3 +384,10 @@ there's no separate static-file host in front of the app.
 `GET /healthz/` returns a bare `200 ok` with no auth — used by
 `railway.json`'s `healthcheckPath` since every other route requires a JWT or
 staff login and would otherwise report the deploy as unhealthy.
+
+Railway sends that probe with `Host: healthcheck.railway.app`, not with the
+service's own domain, so Django answers `400 DisallowedHost` unless that name
+is in `ALLOWED_HOSTS` — the healthcheck then never sees a `200` and the deploy
+is marked failed once `healthcheckTimeout` elapses. `config/settings/base.py`
+appends it (along with `RAILWAY_PUBLIC_DOMAIN`) unconditionally so this can't
+be broken by editing `DJANGO_ALLOWED_HOSTS` or by creating a new environment.

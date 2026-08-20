@@ -20,6 +20,19 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "development-only-secret-key-change-
 DEBUG = env_bool("DJANGO_DEBUG", True)
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host]
 
+# Railway injects RAILWAY_PUBLIC_DOMAIN with this service's own domain, and its
+# healthcheck probe sends Host: healthcheck.railway.app -- a deploy is marked
+# failed the moment either one is missing here, since Django answers an
+# unlisted Host with 400 DisallowedHost and the healthcheck never sees a 200.
+# Appending them in code rather than relying on DJANGO_ALLOWED_HOSTS means a
+# dashboard typo or a freshly created Railway environment can't reintroduce
+# that failure. Both are unset outside Railway, so local dev is unaffected.
+_railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
+if "healthcheck.railway.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("healthcheck.railway.app")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
